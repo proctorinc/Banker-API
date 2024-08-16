@@ -2,14 +2,14 @@ package main
 
 import (
 	"fmt"
+	"os"
 
-	"github.com/proctorinc/banker/router"
+	"github.com/joho/godotenv"
+	"github.com/proctorinc/banker/internal/router"
 )
 
-const PORT = 3000
-
 func main() {
-	fmt.Println("Running!")
+	godotenv.Load(".env")
 	router := router.NewRouter()
-	router.Run(fmt.Sprintf("localhost:%d", PORT))
+	router.Run(fmt.Sprintf("localhost:%s", os.Getenv("PORT")))
 }
