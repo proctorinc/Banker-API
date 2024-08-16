@@ -1,25 +1,69 @@
--- name: GetAuthor :one
-SELECT * FROM authors
+-- USERS
+
+-- name: CreateUser :one
+INSERT INTO users (
+    username, email, passwordHash
+) VALUES (
+    $1, $2, $3
+)
+RETURNING id, username, email;
+
+-- name: GetUser :one
+SELECT * FROM users
 WHERE id = $1 LIMIT 1;
 
--- name: ListAuthors :many
-SELECT * FROM authors
-ORDER BY name;
+-- TRANSACTIONS
 
--- name: CreateAuthor :one
-INSERT INTO authors (
-  name, bio
+-- name: CreateTransaction :one
+INSERT INTO transactions (
+    amount, ownerId, accountId, merchantId
 ) VALUES (
-  $1, $2
+    $1, $2, $3, $4
 )
 RETURNING *;
 
--- name: UpdateAuthor :exec
-UPDATE authors
-  set name = $2,
-  bio = $3
-WHERE id = $1;
+-- name: GetTransaction :one
+SELECT * FROM transactions
+WHERE ownerId = $1 LIMIT 1;
 
--- name: DeleteAuthor :exec
-DELETE FROM authors
-WHERE id = $1;
+-- name: GetUserTransactions :many
+SELECT * FROM transactions
+WHERE ownerId = $1;
+
+-- name: GetAccountTransactions :many
+SELECT * FROM transactions
+WHERE accountId = $1;
+
+-- name: GetMerchantTransactions :many
+SELECT * FROM transactions
+WHERE merchantId = $1;
+
+-- INSTITUTIONS
+
+-- name: CreateInstitution :one
+INSERT INTO institutions (
+    name, ownerId
+) VALUES (
+    $1, $2
+)
+RETURNING *;
+
+-- ACCOUNTS
+
+-- name: CreateAccount :one
+INSERT INTO accounts (
+    name, institutionId
+) VALUES (
+    $1, $2
+)
+RETURNING *;
+
+-- MERCHANTS
+
+-- name: CreateMerchant :one
+INSERT INTO merchants (
+    name, customerId
+) VALUES (
+    $1, $2
+)
+RETURNING *;
