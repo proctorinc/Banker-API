@@ -1,23 +1,30 @@
 package graphql
 
 import (
-	"net/http"
-
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
+	"github.com/gin-gonic/gin"
 	"github.com/proctorinc/banker/internal/db"
 )
 
-func NewHandler(repo db.Repository) http.Handler {
-	return handler.NewDefaultServer(
+func GraphqlHandler(repo db.Repository) gin.HandlerFunc {
+	h := handler.NewDefaultServer(
 		NewExecutableSchema(Config{
 			Resolvers: &Resolver{
 				Repository: repo,
 			},
 		}),
 	)
+
+	return func(c *gin.Context) {
+		h.ServeHTTP(c.Writer, c.Request)
+	}
 }
 
-func NewPlaygroundHandler(endpoint string) http.Handler {
-	return playground.Handler("GraphQL Playground", endpoint)
+func NewPlaygroundHandler() gin.HandlerFunc {
+	h := playground.Handler("GraphQL", "/query")
+
+	return func(c *gin.Context) {
+		h.ServeHTTP(c.Writer, c.Request)
+	}
 }
