@@ -5,38 +5,14 @@
 package db
 
 import (
-	"github.com/jackc/pgx/v5/pgtype"
+	"database/sql"
+
+	"github.com/google/uuid"
 )
 
-type Account struct {
-	ID            string
-	Name          string
-	Institutionid string
-}
-
-type Institution struct {
-	ID      string
-	Name    string
-	Ownerid string
-}
-
-type Merchant struct {
-	ID         string
-	Name       string
-	Customerid string
-}
-
-type Transaction struct {
-	ID         string
-	Amount     pgtype.Numeric
-	Ownerid    string
-	Accountid  string
-	Merchantid string
-}
-
 type User struct {
-	ID           string
-	Username     pgtype.Text
-	Email        pgtype.Text
-	Passwordhash pgtype.Text
+	ID           uuid.UUID
+	Username     string
+	Email        string
+	Passwordhash sql.NullString
 }

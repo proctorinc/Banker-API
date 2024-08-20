@@ -7,232 +7,25 @@ package db
 
 import (
 	"context"
+	"database/sql"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/google/uuid"
 )
-
-const createAccount = `-- name: CreateAccount :one
-
-INSERT INTO accounts (
-    name, institutionId
-) VALUES (
-    $1, $2
-)
-RETURNING id, name, institutionid
-`
-
-type CreateAccountParams struct {
-	Name          string
-	Institutionid string
-}
-
-// ACCOUNTS
-func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error) {
-	row := q.db.QueryRow(ctx, createAccount, arg.Name, arg.Institutionid)
-	var i Account
-	err := row.Scan(&i.ID, &i.Name, &i.Institutionid)
-	return i, err
-}
-
-const createInstitution = `-- name: CreateInstitution :one
-
-INSERT INTO institutions (
-    name, ownerId
-) VALUES (
-    $1, $2
-)
-RETURNING id, name, ownerid
-`
-
-type CreateInstitutionParams struct {
-	Name    string
-	Ownerid string
-}
-
-// INSTITUTIONS
-func (q *Queries) CreateInstitution(ctx context.Context, arg CreateInstitutionParams) (Institution, error) {
-	row := q.db.QueryRow(ctx, createInstitution, arg.Name, arg.Ownerid)
-	var i Institution
-	err := row.Scan(&i.ID, &i.Name, &i.Ownerid)
-	return i, err
-}
-
-const createMerchant = `-- name: CreateMerchant :one
-
-INSERT INTO merchants (
-    name, customerId
-) VALUES (
-    $1, $2
-)
-RETURNING id, name, customerid
-`
-
-type CreateMerchantParams struct {
-	Name       string
-	Customerid string
-}
-
-// MERCHANTS
-func (q *Queries) CreateMerchant(ctx context.Context, arg CreateMerchantParams) (Merchant, error) {
-	row := q.db.QueryRow(ctx, createMerchant, arg.Name, arg.Customerid)
-	var i Merchant
-	err := row.Scan(&i.ID, &i.Name, &i.Customerid)
-	return i, err
-}
-
-const createTransaction = `-- name: CreateTransaction :one
-
-INSERT INTO transactions (
-    amount, ownerId, accountId, merchantId
-) VALUES (
-    $1, $2, $3, $4
-)
-RETURNING id, amount, ownerid, accountid, merchantid
-`
-
-type CreateTransactionParams struct {
-	Amount     pgtype.Numeric
-	Ownerid    string
-	Accountid  string
-	Merchantid string
-}
-
-// TRANSACTIONS
-func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error) {
-	row := q.db.QueryRow(ctx, createTransaction,
-		arg.Amount,
-		arg.Ownerid,
-		arg.Accountid,
-		arg.Merchantid,
-	)
-	var i Transaction
-	err := row.Scan(
-		&i.ID,
-		&i.Amount,
-		&i.Ownerid,
-		&i.Accountid,
-		&i.Merchantid,
-	)
-	return i, err
-}
 
 const createUser = `-- name: CreateUser :one
-
-INSERT INTO users (
-    username, email, passwordHash
-) VALUES (
-    $1, $2, $3
-)
-RETURNING id, username, email
+INSERT INTO users (username, email, passwordHash)
+VALUES ($1, $2, $3)
+RETURNING id, username, email, passwordhash
 `
 
 type CreateUserParams struct {
-	Username     pgtype.Text
-	Email        pgtype.Text
-	Passwordhash pgtype.Text
+	Username     string
+	Email        string
+	Passwordhash sql.NullString
 }
 
-type CreateUserRow struct {
-	ID       string
-	Username pgtype.Text
-	Email    pgtype.Text
-}
-
-// USERS
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
-	row := q.db.QueryRow(ctx, createUser, arg.Username, arg.Email, arg.Passwordhash)
-	var i CreateUserRow
-	err := row.Scan(&i.ID, &i.Username, &i.Email)
-	return i, err
-}
-
-const getAccountTransactions = `-- name: GetAccountTransactions :many
-SELECT id, amount, ownerid, accountid, merchantid FROM transactions
-WHERE accountId = $1
-`
-
-func (q *Queries) GetAccountTransactions(ctx context.Context, accountid string) ([]Transaction, error) {
-	rows, err := q.db.Query(ctx, getAccountTransactions, accountid)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Transaction
-	for rows.Next() {
-		var i Transaction
-		if err := rows.Scan(
-			&i.ID,
-			&i.Amount,
-			&i.Ownerid,
-			&i.Accountid,
-			&i.Merchantid,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getMerchantTransactions = `-- name: GetMerchantTransactions :many
-SELECT id, amount, ownerid, accountid, merchantid FROM transactions
-WHERE merchantId = $1
-`
-
-func (q *Queries) GetMerchantTransactions(ctx context.Context, merchantid string) ([]Transaction, error) {
-	rows, err := q.db.Query(ctx, getMerchantTransactions, merchantid)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Transaction
-	for rows.Next() {
-		var i Transaction
-		if err := rows.Scan(
-			&i.ID,
-			&i.Amount,
-			&i.Ownerid,
-			&i.Accountid,
-			&i.Merchantid,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getTransaction = `-- name: GetTransaction :one
-SELECT id, amount, ownerid, accountid, merchantid FROM transactions
-WHERE ownerId = $1 LIMIT 1
-`
-
-func (q *Queries) GetTransaction(ctx context.Context, ownerid string) (Transaction, error) {
-	row := q.db.QueryRow(ctx, getTransaction, ownerid)
-	var i Transaction
-	err := row.Scan(
-		&i.ID,
-		&i.Amount,
-		&i.Ownerid,
-		&i.Accountid,
-		&i.Merchantid,
-	)
-	return i, err
-}
-
-const getUser = `-- name: GetUser :one
-SELECT id, username, email, passwordhash FROM users
-WHERE id = $1 LIMIT 1
-`
-
-func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
-	row := q.db.QueryRow(ctx, getUser, id)
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, createUser, arg.Username, arg.Email, arg.Passwordhash)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -243,33 +36,96 @@ func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
 	return i, err
 }
 
-const getUserTransactions = `-- name: GetUserTransactions :many
-SELECT id, amount, ownerid, accountid, merchantid FROM transactions
-WHERE ownerId = $1
+const deleteUser = `-- name: DeleteUser :one
+DELETE FROM users
+WHERE id = $1
+RETURNING id, username, email, passwordhash
 `
 
-func (q *Queries) GetUserTransactions(ctx context.Context, ownerid string) ([]Transaction, error) {
-	rows, err := q.db.Query(ctx, getUserTransactions, ownerid)
+func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRowContext(ctx, deleteUser, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.Passwordhash,
+	)
+	return i, err
+}
+
+const getUser = `-- name: GetUser :one
+
+SELECT id, username, email, passwordhash FROM users
+WHERE id = $1
+`
+
+// USERS
+func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUser, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.Passwordhash,
+	)
+	return i, err
+}
+
+const listUsers = `-- name: ListUsers :many
+SELECT id, username, email, passwordhash FROM users
+`
+
+func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
+	rows, err := q.db.QueryContext(ctx, listUsers)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Transaction
+	var items []User
 	for rows.Next() {
-		var i Transaction
+		var i User
 		if err := rows.Scan(
 			&i.ID,
-			&i.Amount,
-			&i.Ownerid,
-			&i.Accountid,
-			&i.Merchantid,
+			&i.Username,
+			&i.Email,
+			&i.Passwordhash,
 		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
 	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateUser = `-- name: UpdateUser :one
+UPDATE users
+SET username = $2, email = $3
+WHERE id = $1
+RETURNING id, username, email, passwordhash
+`
+
+type UpdateUserParams struct {
+	ID       uuid.UUID
+	Username string
+	Email    string
+}
+
+func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, updateUser, arg.ID, arg.Username, arg.Email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.Passwordhash,
+	)
+	return i, err
 }
