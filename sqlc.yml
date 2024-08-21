@@ -8,3 +8,6 @@ sql:
         package: "db"
         out: "internal/db"
         sql_package: "database/sql"
+        overrides:
+          - db_type: "decimal"
+            go_type: "github.com/shopspring/decimal.Decimal"

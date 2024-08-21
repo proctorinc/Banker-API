@@ -12,6 +12,24 @@ import (
 	"github.com/google/uuid"
 )
 
+const createTransaction = `-- name: CreateTransaction :one
+INSERT INTO transactions (amount, ownerId)
+VALUES ($1, $2)
+RETURNING id, amount, ownerid
+`
+
+type CreateTransactionParams struct {
+	Amount  int32
+	Ownerid uuid.UUID
+}
+
+func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error) {
+	row := q.db.QueryRowContext(ctx, createTransaction, arg.Amount, arg.Ownerid)
+	var i Transaction
+	err := row.Scan(&i.ID, &i.Amount, &i.Ownerid)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (username, email, passwordHash)
 VALUES ($1, $2, $3)
@@ -36,6 +54,19 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const deleteTransaction = `-- name: DeleteTransaction :one
+DELETE FROM transactions
+WHERE id = $1
+RETURNING id, amount, ownerid
+`
+
+func (q *Queries) DeleteTransaction(ctx context.Context, id uuid.UUID) (Transaction, error) {
+	row := q.db.QueryRowContext(ctx, deleteTransaction, id)
+	var i Transaction
+	err := row.Scan(&i.ID, &i.Amount, &i.Ownerid)
+	return i, err
+}
+
 const deleteUser = `-- name: DeleteUser :one
 DELETE FROM users
 WHERE id = $1
@@ -51,6 +82,21 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.Email,
 		&i.Passwordhash,
 	)
+	return i, err
+}
+
+const getTransaction = `-- name: GetTransaction :one
+
+SELECT id, amount, ownerid FROM transactions
+WHERE id = $1
+LIMIT 1
+`
+
+// TRANSACTIONS
+func (q *Queries) GetTransaction(ctx context.Context, id uuid.UUID) (Transaction, error) {
+	row := q.db.QueryRowContext(ctx, getTransaction, id)
+	var i Transaction
+	err := row.Scan(&i.ID, &i.Amount, &i.Ownerid)
 	return i, err
 }
 
@@ -71,6 +117,51 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.Passwordhash,
 	)
 	return i, err
+}
+
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, username, email, passwordhash FROM users
+WHERE email = $1
+`
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.Passwordhash,
+	)
+	return i, err
+}
+
+const listTransactions = `-- name: ListTransactions :many
+SELECT id, amount, ownerid FROM transactions
+WHERE ownerId = $1
+`
+
+func (q *Queries) ListTransactions(ctx context.Context, ownerid uuid.UUID) ([]Transaction, error) {
+	rows, err := q.db.QueryContext(ctx, listTransactions, ownerid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Transaction
+	for rows.Next() {
+		var i Transaction
+		if err := rows.Scan(&i.ID, &i.Amount, &i.Ownerid); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listUsers = `-- name: ListUsers :many
@@ -103,6 +194,26 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateTransaction = `-- name: UpdateTransaction :one
+UPDATE transactions
+SET amount = $3
+WHERE id = $1 AND ownerId = $2
+RETURNING id, amount, ownerid
+`
+
+type UpdateTransactionParams struct {
+	ID      uuid.UUID
+	Ownerid uuid.UUID
+	Amount  int32
+}
+
+func (q *Queries) UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (Transaction, error) {
+	row := q.db.QueryRowContext(ctx, updateTransaction, arg.ID, arg.Ownerid, arg.Amount)
+	var i Transaction
+	err := row.Scan(&i.ID, &i.Amount, &i.Ownerid)
+	return i, err
 }
 
 const updateUser = `-- name: UpdateUser :one

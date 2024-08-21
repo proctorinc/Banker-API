@@ -10,10 +10,18 @@ import (
 )
 
 type Repository interface {
+	// Users
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
+	GetUserByEmail(ctx context.Context, email string) (User, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteUser(ctx context.Context, id uuid.UUID) (User, error)
+
+	// Transactions
+	GetTransaction(ctx context.Context, id uuid.UUID) (Transaction, error)
+	ListTransactions(ctx context.Context, ownerid uuid.UUID) ([]Transaction, error)
+	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
+	DeleteTransaction(ctx context.Context, id uuid.UUID) (Transaction, error)
 }
 
 type repositoryService struct {

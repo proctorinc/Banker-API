@@ -2,19 +2,40 @@ type User {
     id: ID!
     username: String!
     email: String!
+    transactions: [Transaction!]!
+}
+
+type Transaction {
+    id: ID!
+    amount: Float!
 }
 
 type Query {
     user(id: ID!): User
-    users: [User!]
+    users: [User!]!
+    transaction(id: ID!): Transaction
+    transactions(userId: ID!): [Transaction!]!
 }
 
 type Mutation {
+    Login(data: LoginInput!): User
     createUser(data: UserInput!): User!
     deleteUser(id: ID!): User!
+    createTransaction(data: TransactionInput!): Transaction!
+    deleteTransaction(id: ID!): Transaction!
+}
+
+input LoginInput {
+    email: String!
+    password: String!
 }
 
 input UserInput {
     username: String!
     email: String!
+}
+
+input TransactionInput {
+    amount: Float!
+    ownerId: ID!
 }
