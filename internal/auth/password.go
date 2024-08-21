@@ -18,6 +18,12 @@ type Argon2Parameters struct {
 	KeyLength   uint32
 }
 
+type DecodedHash struct {
+	Parameters Argon2Parameters
+	Salt       []byte
+	Hash       []byte
+}
+
 func HashPassword(password string) (string, error) {
 	params := getParams()
 	salt, err := generateSalt(params.SaltLength)
@@ -53,7 +59,8 @@ func HashPassword(password string) (string, error) {
 }
 
 func VerifyPassword(password string, encodedHash string) (bool, error) {
-	params, salt, hash, err := decodeHash(encodedHash)
+	decoded, err := decodeHash(encodedHash)
+	params := decoded.Parameters
 
 	if err != nil {
 		return false, err
@@ -61,7 +68,7 @@ func VerifyPassword(password string, encodedHash string) (bool, error) {
 
 	otherHash := argon2.IDKey(
 		[]byte(password),
-		salt,
+		decoded.Salt,
 		params.Iterations,
 		params.Memory,
 		params.Parallelism,
@@ -69,9 +76,10 @@ func VerifyPassword(password string, encodedHash string) (bool, error) {
 	)
 
 	// Compare hashes with constant time to avoid timing attacks
-	if subtle.ConstantTimeCompare(hash, otherHash) == 1 {
+	if subtle.ConstantTimeCompare(decoded.Hash, otherHash) == 1 {
 		return true, nil
 	}
+
 	return false, nil
 }
 
@@ -87,45 +95,67 @@ func getParams() Argon2Parameters {
 	}
 }
 
-func decodeHash(encodedHash string) (p *Argon2Parameters, salt, hash []byte, err error) {
-	vals := strings.Split(encodedHash, "$")
-	if len(vals) != 6 {
-		return nil, nil, nil, fmt.Errorf("invalid hash")
-	}
-
+func decodeHash(encodedHash string) (data *DecodedHash, err error) {
 	var version int
+	params := Argon2Parameters{}
+
+	vals := strings.Split(encodedHash, "$")
+
+	if len(vals) != 6 {
+		return nil, fmt.Errorf("invalid hash")
+	}
+
 	_, err = fmt.Sscanf(vals[2], "v=%d", &version)
+
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
+
 	if version != argon2.Version {
-		return nil, nil, nil, fmt.Errorf("invalid argon2 version")
+		return nil, fmt.Errorf("invalid argon2 version")
 	}
 
-	p = &Argon2Parameters{}
-	_, err = fmt.Sscanf(vals[3], "m=%d,t=%d,p=%d", &p.Memory, &p.Iterations, &p.Parallelism)
+	_, err = fmt.Sscanf(
+		vals[3],
+		"m=%d,t=%d,p=%d",
+		&params.Memory,
+		&params.Iterations,
+		&params.Parallelism,
+	)
+
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
-	salt, err = base64.RawStdEncoding.Strict().DecodeString(vals[4])
+	salt, err := base64.RawStdEncoding.Strict().DecodeString(vals[4])
+
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	p.SaltLength = uint32(len(salt))
 
-	hash, err = base64.RawStdEncoding.Strict().DecodeString(vals[5])
+	params.SaltLength = uint32(len(salt))
+
+	hash, err := base64.RawStdEncoding.Strict().DecodeString(vals[5])
+
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	p.KeyLength = uint32(len(hash))
 
-	return p, salt, hash, nil
+	params.KeyLength = uint32(len(hash))
+
+	decoded := &DecodedHash{
+		Parameters: params,
+		Salt:       salt,
+		Hash:       hash,
+	}
+
+	return decoded, nil
 }
 
 func generateSalt(n uint32) ([]byte, error) {
 	b := make([]byte, n)
 	_, err := rand.Read(b)
+
 	if err != nil {
 		return nil, err
 	}
