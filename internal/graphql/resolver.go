@@ -127,5 +127,5 @@ func (r *transactionResolver) ID(ctx context.Context, transaction *db.Transactio
 }
 
 func (r *transactionResolver) Amount(ctx context.Context, transaction *db.Transaction) (float64, error) {
-	return float64(transaction.Amount / 100), nil
+	return float64(transaction.Amount) / 100, nil
 }
