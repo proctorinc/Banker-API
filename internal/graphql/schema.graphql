@@ -1,3 +1,5 @@
+directive @isAuthenticated on FIELD_DEFINITION
+
 type User {
     id: ID!
     username: String!
@@ -21,8 +23,8 @@ type Mutation {
     Login(data: LoginInput!): User
     createUser(data: UserInput!): User!
     deleteUser(id: ID!): User!
-    createTransaction(data: TransactionInput!): Transaction!
-    deleteTransaction(id: ID!): Transaction!
+    createTransaction(data: TransactionInput!): Transaction! @isAuthenticated
+    deleteTransaction(id: ID!): Transaction! @isAuthenticated
 }
 
 input LoginInput {
