@@ -7,11 +7,9 @@ else
 fi
 
 echo "removing graphql models file"
-if rm /Users/mattyp/Documents/Projects/go-bank-backend/internal/graphql/models.go
+if rm /Users/mattyp/Documents/Projects/go-bank-backend/internal/graphql/models.go || true
 then
     echo "done"
-else
-    exit 1
 fi
 
 echo "generating gql files..."
