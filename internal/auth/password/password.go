@@ -1,4 +1,4 @@
-package auth
+package password
 
 import (
 	"crypto/rand"
@@ -58,12 +58,12 @@ func HashPassword(password string) (string, error) {
 	return encodedHash, nil
 }
 
-func VerifyPassword(password string, encodedHash string) (bool, error) {
+func VerifyPassword(password string, encodedHash string) error {
 	decoded, err := decodeHash(encodedHash)
 	params := decoded.Parameters
 
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	otherHash := argon2.IDKey(
@@ -77,10 +77,10 @@ func VerifyPassword(password string, encodedHash string) (bool, error) {
 
 	// Compare hashes with constant time to avoid timing attacks
 	if subtle.ConstantTimeCompare(decoded.Hash, otherHash) == 1 {
-		return true, nil
+		return nil
 	}
 
-	return false, nil
+	return fmt.Errorf("Passwords do not match")
 }
 
 func getParams() Argon2Parameters {

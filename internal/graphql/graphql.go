@@ -4,6 +4,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/gin-gonic/gin"
+	"github.com/proctorinc/banker/internal/auth"
 	"github.com/proctorinc/banker/internal/db"
 	"github.com/proctorinc/banker/internal/graphql/directives"
 )
@@ -11,7 +12,8 @@ import (
 func GraphqlHandler(repo db.Repository) gin.HandlerFunc {
 	config := Config{
 		Resolvers: &Resolver{
-			Repository: repo,
+			Repository:  repo,
+			AuthService: *auth.NewAuthService(repo),
 		},
 	}
 

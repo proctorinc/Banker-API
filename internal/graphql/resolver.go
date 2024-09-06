@@ -2,13 +2,16 @@ package graphql
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/proctorinc/banker/internal/auth"
 	"github.com/proctorinc/banker/internal/db"
 )
 
 type Resolver struct {
-	Repository db.Repository
+	Repository  db.Repository
+	AuthService auth.AuthService
 	// DataLoaders dataloaders.Retriever
 }
 
@@ -29,6 +32,16 @@ func (r *Resolver) Transaction() TransactionResolver {
 }
 
 type queryResolver struct{ *Resolver }
+
+func (r *queryResolver) Me(ctx context.Context) (*db.User, error) {
+	user := r.AuthService.GetCurrentUser(ctx)
+
+	if user == nil {
+		return nil, fmt.Errorf("no authenticated user")
+	}
+
+	return user, nil
+}
 
 func (r *queryResolver) User(ctx context.Context, userId uuid.UUID) (*db.User, error) {
 	user, err := r.Repository.GetUser(ctx, userId)
@@ -57,24 +70,22 @@ func (r *queryResolver) Transactions(ctx context.Context, userId uuid.UUID) ([]d
 type mutationResolver struct{ *Resolver }
 
 func (r *mutationResolver) Login(ctx context.Context, data LoginInput) (*db.User, error) {
-	user, err := r.Repository.GetUserByEmail(ctx, data.Email)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &user, nil
+	return r.AuthService.Login(ctx, auth.LoginInput{
+		Email:    data.Email,
+		Password: data.Password,
+	})
 }
 
-func (r *mutationResolver) CreateUser(ctx context.Context, data UserInput) (*db.User, error) {
-	user, err := r.Repository.CreateUser(ctx, db.CreateUserParams{
-		Username: data.Username,
+func (r *mutationResolver) Logout(ctx context.Context) (string, error) {
+	return r.AuthService.Logout(ctx)
+}
+
+func (r *mutationResolver) Register(ctx context.Context, data RegisterInput) (*db.User, error) {
+	return r.AuthService.Register(ctx, auth.RegisterInput{
 		Email:    data.Email,
+		Username: data.Username,
+		Password: data.Password,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &user, nil
 }
 
 func (r *mutationResolver) DeleteUser(ctx context.Context, userId uuid.UUID) (*db.User, error) {

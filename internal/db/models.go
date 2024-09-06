@@ -5,8 +5,6 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/google/uuid"
 )
 
@@ -20,5 +18,5 @@ type User struct {
 	ID           uuid.UUID
 	Username     string
 	Email        string
-	Passwordhash sql.NullString
+	Passwordhash string
 }

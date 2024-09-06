@@ -17,12 +17,13 @@ type Mutation struct {
 type Query struct {
 }
 
+type RegisterInput struct {
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 type TransactionInput struct {
 	Amount  float64   `json:"amount"`
 	OwnerID uuid.UUID `json:"ownerId"`
-}
-
-type UserInput struct {
-	Username string `json:"username"`
-	Email    string `json:"email"`
 }
