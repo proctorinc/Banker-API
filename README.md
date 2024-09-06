@@ -14,11 +14,8 @@ To start the server, run Air (May depend upon where you have air configured)
 ```
 
 ## Development
-To generate sqlc types after making changes to the db/schema.sql, run:
+To generate sqlc types after making changes to the db/schema.sql or schema.graphql, run:
 ```sh
-sqlc generate
+./scripts/generate.sh
 ```
-To generate graphql types after making changes to sql or schema.graphql, run:
-```sh
-go run github.com/99designs/gqlgen generate
-```
+This command runs ```sqlc generate``` and ```gqlgen generate``` to compile sql and graphql schema files into go
