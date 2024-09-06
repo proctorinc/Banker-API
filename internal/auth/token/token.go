@@ -2,10 +2,11 @@ package token
 
 import (
 	"context"
-	"log"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/proctorinc/banker/internal/auth/session"
 )
 
 type AuthToken struct {
@@ -47,26 +48,33 @@ func GetAuthToken(ctx *gin.Context) (*AuthToken, error) {
 }
 
 func SetAuthToken(ctx context.Context, userId uuid.UUID) {
-	log.Println("Setting auth token is not implemented")
-	// cookie := http.Cookie{
-	// 	Name:     TokenKey,
-	// 	Value:    userId.String(),
-	// 	MaxAge:   3600,
-	// 	Path:     "/",
-	// 	Domain:   "localhost",
-	// 	Secure:   false,
-	// 	HttpOnly: true,
-	// }
+	session := session.GetSession(ctx)
 
-	// http.SetCookie(ctx.Writer, &cookie)
+	cookie := http.Cookie{
+		Name:     TokenKey,
+		Value:    userId.String(),
+		MaxAge:   0,
+		Path:     "/",
+		Domain:   "localhost",
+		Secure:   false,
+		HttpOnly: true,
+	}
 
-	// ctx.SetCookie(
-	// 	config.Key,
-	// 	config.Value,
-	// 	config.MaxAge,
-	// 	config.Path,
-	// 	config.Domain,
-	// 	config.Secure,
-	// 	config.HttpOnly,
-	// )
+	http.SetCookie(session.Writer, &cookie)
+}
+
+func RemoveAuthToken(ctx context.Context) {
+	session := session.GetSession(ctx)
+
+	cookie := http.Cookie{
+		Name:     TokenKey,
+		Value:    "",
+		MaxAge:   -1,
+		Path:     "/",
+		Domain:   "localhost",
+		Secure:   false,
+		HttpOnly: true,
+	}
+
+	http.SetCookie(session.Writer, &cookie)
 }

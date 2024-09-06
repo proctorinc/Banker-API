@@ -34,7 +34,7 @@ func (r *Resolver) Transaction() TransactionResolver {
 type queryResolver struct{ *Resolver }
 
 func (r *queryResolver) Me(ctx context.Context) (*db.User, error) {
-	user := r.AuthService.GetCurrentUser(ctx)
+	user := auth.GetCurrentUser(ctx)
 
 	if user == nil {
 		return nil, fmt.Errorf("no authenticated user")

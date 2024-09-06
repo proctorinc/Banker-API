@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/gin-gonic/gin"
 	"github.com/proctorinc/banker/internal/auth/password"
+	"github.com/proctorinc/banker/internal/auth/session"
 	"github.com/proctorinc/banker/internal/auth/token"
 	"github.com/proctorinc/banker/internal/db"
 )
@@ -26,8 +26,6 @@ type RegisterInput struct {
 	Password string
 }
 
-const userContextKey = "user"
-
 func NewAuthService(r db.Repository) *AuthService {
 	return &AuthService{
 		Repository: r,
@@ -35,20 +33,12 @@ func NewAuthService(r db.Repository) *AuthService {
 }
 
 func IsAuthenticated(ctx context.Context) bool {
-	return GetAuthenticatedUser(ctx) != nil
+	session := session.GetSession(ctx)
+	return session != nil && session.IsLoggedIn
 }
 
-func GetAuthenticatedUser(ctx context.Context) *db.User {
-	raw, _ := ctx.Value(userContextKey).(*db.User)
-	return raw
-}
-
-func SetAuthenticatedUser(ctx *gin.Context, user db.User) {
-	ctx.Set(userContextKey, user)
-}
-
-func (s *AuthService) GetCurrentUser(ctx context.Context) *db.User {
-	return GetAuthenticatedUser(ctx)
+func GetCurrentUser(ctx context.Context) *db.User {
+	return session.GetSession(ctx).User
 }
 
 func (s *AuthService) Login(ctx context.Context, data LoginInput) (*db.User, error) {
@@ -70,6 +60,9 @@ func (s *AuthService) Login(ctx context.Context, data LoginInput) (*db.User, err
 }
 
 func (s *AuthService) Logout(ctx context.Context) (string, error) {
+	// reqSession := session.GetSession(ctx)
+	token.RemoveAuthToken(ctx)
+
 	return "User has been successfully logged out", nil
 }
 
