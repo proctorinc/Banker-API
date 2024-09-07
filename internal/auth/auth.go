@@ -63,7 +63,7 @@ func (s *AuthService) Logout(ctx context.Context) (string, error) {
 	// reqSession := session.GetSession(ctx)
 	token.RemoveAuthToken(ctx)
 
-	return "User has been successfully logged out", nil
+	return "You have successfully logged out", nil
 }
 
 func (s *AuthService) Register(ctx context.Context, data RegisterInput) (*db.User, error) {

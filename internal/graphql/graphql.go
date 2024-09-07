@@ -18,6 +18,7 @@ func GraphqlHandler(repo db.Repository) gin.HandlerFunc {
 	}
 
 	config.Directives.IsAuthenticated = directives.IsAuthenticated
+	config.Directives.IsAdmin = directives.IsAdmin
 
 	handler := handler.NewDefaultServer(
 		NewExecutableSchema(config),

@@ -32,7 +32,7 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (username, email, passwordHash)
 VALUES ($1, $2, $3)
-RETURNING id, username, email, passwordhash
+RETURNING id, role, username, email, passwordhash
 `
 
 type CreateUserParams struct {
@@ -46,6 +46,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.Role,
 		&i.Username,
 		&i.Email,
 		&i.Passwordhash,
@@ -69,7 +70,7 @@ func (q *Queries) DeleteTransaction(ctx context.Context, id uuid.UUID) (Transact
 const deleteUser = `-- name: DeleteUser :one
 DELETE FROM users
 WHERE id = $1
-RETURNING id, username, email, passwordhash
+RETURNING id, role, username, email, passwordhash
 `
 
 func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) (User, error) {
@@ -77,6 +78,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) (User, error) {
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.Role,
 		&i.Username,
 		&i.Email,
 		&i.Passwordhash,
@@ -101,7 +103,7 @@ func (q *Queries) GetTransaction(ctx context.Context, id uuid.UUID) (Transaction
 
 const getUser = `-- name: GetUser :one
 
-SELECT id, username, email, passwordhash FROM users
+SELECT id, role, username, email, passwordhash FROM users
 WHERE id = $1
 `
 
@@ -111,6 +113,7 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.Role,
 		&i.Username,
 		&i.Email,
 		&i.Passwordhash,
@@ -119,7 +122,7 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, username, email, passwordhash FROM users
+SELECT id, role, username, email, passwordhash FROM users
 WHERE email = $1
 `
 
@@ -128,6 +131,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.Role,
 		&i.Username,
 		&i.Email,
 		&i.Passwordhash,
@@ -164,7 +168,7 @@ func (q *Queries) ListTransactions(ctx context.Context, ownerid uuid.UUID) ([]Tr
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, username, email, passwordhash FROM users
+SELECT id, role, username, email, passwordhash FROM users
 `
 
 func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
@@ -178,6 +182,7 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 		var i User
 		if err := rows.Scan(
 			&i.ID,
+			&i.Role,
 			&i.Username,
 			&i.Email,
 			&i.Passwordhash,
@@ -219,7 +224,7 @@ const updateUser = `-- name: UpdateUser :one
 UPDATE users
 SET username = $2, email = $3
 WHERE id = $1
-RETURNING id, username, email, passwordhash
+RETURNING id, role, username, email, passwordhash
 `
 
 type UpdateUserParams struct {
@@ -233,6 +238,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.Role,
 		&i.Username,
 		&i.Email,
 		&i.Passwordhash,

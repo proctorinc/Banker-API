@@ -2,7 +2,6 @@ package auth
 
 import (
 	"log"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/proctorinc/banker/internal/auth/session"
@@ -38,16 +37,16 @@ func Middleware(db db.Repository) gin.HandlerFunc {
 		userId, err := authToken.GetUserId()
 
 		if err != nil {
-			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid auth token supplied"})
-			ctx.Abort()
+			log.Println("Invalid token provided #1")
+			ctx.Next()
 			return
 		}
 
 		user, err := db.GetUser(ctx, userId)
 
 		if err != nil {
-			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid auth token supplied"})
-			ctx.Abort()
+			log.Println("Invalid token provided #2")
+			ctx.Next()
 			return
 		}
 

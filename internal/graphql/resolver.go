@@ -45,9 +45,11 @@ func (r *queryResolver) Me(ctx context.Context) (*db.User, error) {
 
 func (r *queryResolver) User(ctx context.Context, userId uuid.UUID) (*db.User, error) {
 	user, err := r.Repository.GetUser(ctx, userId)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return &user, nil
 }
 
@@ -57,14 +59,18 @@ func (r *queryResolver) Users(ctx context.Context) ([]db.User, error) {
 
 func (r *queryResolver) Transaction(ctx context.Context, transactionId uuid.UUID) (*db.Transaction, error) {
 	transaction, err := r.Repository.GetTransaction(ctx, transactionId)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return &transaction, nil
 }
 
-func (r *queryResolver) Transactions(ctx context.Context, userId uuid.UUID) ([]db.Transaction, error) {
-	return r.Repository.ListTransactions(ctx, userId)
+func (r *queryResolver) Transactions(ctx context.Context) ([]db.Transaction, error) {
+	user := auth.GetCurrentUser(ctx)
+
+	return r.Repository.ListTransactions(ctx, user.ID)
 }
 
 type mutationResolver struct{ *Resolver }
@@ -90,28 +96,36 @@ func (r *mutationResolver) Register(ctx context.Context, data RegisterInput) (*d
 
 func (r *mutationResolver) DeleteUser(ctx context.Context, userId uuid.UUID) (*db.User, error) {
 	user, err := r.Repository.DeleteUser(ctx, userId)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return &user, nil
 }
 
 func (r *mutationResolver) CreateTransaction(ctx context.Context, data TransactionInput) (*db.Transaction, error) {
-	user, err := r.Repository.CreateTransaction(ctx, db.CreateTransactionParams{
+	user := auth.GetCurrentUser(ctx)
+
+	transaction, err := r.Repository.CreateTransaction(ctx, db.CreateTransactionParams{
+		Ownerid: user.ID,
 		Amount:  int32(data.Amount * 100),
-		Ownerid: data.OwnerID,
 	})
+
 	if err != nil {
 		return nil, err
 	}
-	return &user, nil
+
+	return &transaction, nil
 }
 
 func (r *mutationResolver) DeleteTransaction(ctx context.Context, id uuid.UUID) (*db.Transaction, error) {
 	transaction, err := r.Repository.DeleteTransaction(ctx, id)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return &transaction, nil
 }
 
@@ -119,6 +133,15 @@ type userResolver struct{ *Resolver }
 
 func (r *userResolver) ID(ctx context.Context, user *db.User) (string, error) {
 	return user.ID.String(), nil
+}
+
+func (r *userResolver) Role(ctx context.Context, user *db.User) (string, error) {
+
+	if user.Role == db.RoleADMIN {
+		return "Admin", nil
+	}
+
+	return "User", nil
 }
 
 func (r *userResolver) Transactions(ctx context.Context, user *db.User) ([]db.Transaction, error) {

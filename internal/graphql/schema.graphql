@@ -1,7 +1,9 @@
 directive @isAuthenticated on FIELD_DEFINITION
+directive @isAdmin on FIELD_DEFINITION
 
 type User {
     id: ID!
+    role: String!
     username: String!
     email: String!
     transactions: [Transaction!]!
@@ -14,10 +16,10 @@ type Transaction {
 
 type Query {
     me: User @isAuthenticated
-    user(id: ID!): User
-    users: [User!]!
-    transaction(id: ID!): Transaction
-    transactions(userId: ID!): [Transaction!]!
+    user(id: ID!): User @isAdmin
+    users: [User!]! @isAdmin
+    transaction(id: ID!): Transaction @isAuthenticated
+    transactions: [Transaction!]! @isAuthenticated
 }
 
 type Mutation {
@@ -42,5 +44,4 @@ input RegisterInput {
 
 input TransactionInput {
     amount: Float!
-    ownerId: ID!
 }
