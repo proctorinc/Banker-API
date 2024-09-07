@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/google/uuid"
 	"github.com/proctorinc/banker/internal/auth"
 	"github.com/proctorinc/banker/internal/db"
+	"github.com/proctorinc/banker/internal/upload"
 )
 
 type Resolver struct {
@@ -129,6 +131,24 @@ func (r *mutationResolver) DeleteTransaction(ctx context.Context, id uuid.UUID) 
 	return &transaction, nil
 }
 
+func (r *mutationResolver) ChaseTransactionsUpload(ctx context.Context, reader graphql.Upload) (bool, error) {
+	user := auth.GetCurrentUser(ctx)
+	transactions, err := upload.ParseChaseCSV(reader.File)
+
+	if err != nil {
+		return false, err
+	}
+
+	for _, transaction := range transactions {
+		r.Repository.CreateTransaction(ctx, db.CreateTransactionParams{
+			Ownerid: user.ID,
+			Amount:  int32(transaction.Amount * 100),
+		})
+	}
+
+	return true, nil
+}
+
 type userResolver struct{ *Resolver }
 
 func (r *userResolver) ID(ctx context.Context, user *db.User) (string, error) {
@@ -136,7 +156,6 @@ func (r *userResolver) ID(ctx context.Context, user *db.User) (string, error) {
 }
 
 func (r *userResolver) Role(ctx context.Context, user *db.User) (string, error) {
-
 	if user.Role == db.RoleADMIN {
 		return "Admin", nil
 	}

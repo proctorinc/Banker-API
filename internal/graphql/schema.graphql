@@ -1,3 +1,5 @@
+scalar Upload
+
 directive @isAuthenticated on FIELD_DEFINITION
 directive @isAdmin on FIELD_DEFINITION
 
@@ -16,10 +18,10 @@ type Transaction {
 
 type Query {
     me: User @isAuthenticated
-    user(id: ID!): User @isAdmin
-    users: [User!]! @isAdmin
     transaction(id: ID!): Transaction @isAuthenticated
     transactions: [Transaction!]! @isAuthenticated
+    user(id: ID!): User @isAdmin
+    users: [User!]! @isAdmin
 }
 
 type Mutation {
@@ -29,6 +31,7 @@ type Mutation {
     deleteUser(id: ID!): User! @isAuthenticated
     createTransaction(data: TransactionInput!): Transaction! @isAuthenticated
     deleteTransaction(id: ID!): Transaction! @isAuthenticated
+    chaseTransactionsUpload(file: Upload!): Boolean! @isAuthenticated
 }
 
 input LoginInput {
