@@ -4,9 +4,9 @@ if [ "$#" -ne 1 ]; then
 fi
 
 if (curl localhost:8080/query --cookie "auth-token=$1" \
-  -F operations='{ "query": "mutation ($file: Upload!) { chaseTransactionsUpload(file: $file) }", "variables": { "file": null } }' \
+  -F operations='{ "query": "mutation ($file: Upload!) { chaseCSVTransactionsUpload(file: $file) }", "variables": { "file": null } }' \
   -F map='{ "0": ["variables.file"] }' \
-  -F 0=@$PWD/scripts/test-data/transactions.csv); then
+  -F 0=@$PWD/scripts/test-data/transactions.notcsv); then
   echo "done"
 else
     exit 1
