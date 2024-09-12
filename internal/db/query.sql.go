@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -14,7 +16,7 @@ import (
 const createTransaction = `-- name: CreateTransaction :one
 INSERT INTO transactions (amount, ownerId)
 VALUES ($1, $2)
-RETURNING id, amount, ownerid
+RETURNING id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, ownerid, accountid
 `
 
 type CreateTransactionParams struct {
@@ -25,7 +27,23 @@ type CreateTransactionParams struct {
 func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error) {
 	row := q.db.QueryRowContext(ctx, createTransaction, arg.Amount, arg.Ownerid)
 	var i Transaction
-	err := row.Scan(&i.ID, &i.Amount, &i.Ownerid)
+	err := row.Scan(
+		&i.ID,
+		&i.Sourceid,
+		&i.Uploadsource,
+		&i.Amount,
+		&i.Payeeid,
+		&i.Payee,
+		&i.Payeefull,
+		&i.Isocurrencycode,
+		&i.Date,
+		&i.Description,
+		&i.Type,
+		&i.Checknumber,
+		&i.Updated,
+		&i.Ownerid,
+		&i.Accountid,
+	)
 	return i, err
 }
 
@@ -57,13 +75,29 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 const deleteTransaction = `-- name: DeleteTransaction :one
 DELETE FROM transactions
 WHERE id = $1
-RETURNING id, amount, ownerid
+RETURNING id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, ownerid, accountid
 `
 
 func (q *Queries) DeleteTransaction(ctx context.Context, id uuid.UUID) (Transaction, error) {
 	row := q.db.QueryRowContext(ctx, deleteTransaction, id)
 	var i Transaction
-	err := row.Scan(&i.ID, &i.Amount, &i.Ownerid)
+	err := row.Scan(
+		&i.ID,
+		&i.Sourceid,
+		&i.Uploadsource,
+		&i.Amount,
+		&i.Payeeid,
+		&i.Payee,
+		&i.Payeefull,
+		&i.Isocurrencycode,
+		&i.Date,
+		&i.Description,
+		&i.Type,
+		&i.Checknumber,
+		&i.Updated,
+		&i.Ownerid,
+		&i.Accountid,
+	)
 	return i, err
 }
 
@@ -88,7 +122,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) (User, error) {
 
 const getTransaction = `-- name: GetTransaction :one
 
-SELECT id, amount, ownerid FROM transactions
+SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, ownerid, accountid FROM transactions
 WHERE id = $1
 LIMIT 1
 `
@@ -97,7 +131,23 @@ LIMIT 1
 func (q *Queries) GetTransaction(ctx context.Context, id uuid.UUID) (Transaction, error) {
 	row := q.db.QueryRowContext(ctx, getTransaction, id)
 	var i Transaction
-	err := row.Scan(&i.ID, &i.Amount, &i.Ownerid)
+	err := row.Scan(
+		&i.ID,
+		&i.Sourceid,
+		&i.Uploadsource,
+		&i.Amount,
+		&i.Payeeid,
+		&i.Payee,
+		&i.Payeefull,
+		&i.Isocurrencycode,
+		&i.Date,
+		&i.Description,
+		&i.Type,
+		&i.Checknumber,
+		&i.Updated,
+		&i.Ownerid,
+		&i.Accountid,
+	)
 	return i, err
 }
 
@@ -139,8 +189,46 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 	return i, err
 }
 
+const listAccounts = `-- name: ListAccounts :many
+
+SELECT id, sourceid, uploadsource, type, name, routingnumber, ownerid FROM accounts
+WHERE ownerId = $1
+`
+
+// ACCOUNTS
+func (q *Queries) ListAccounts(ctx context.Context, ownerid uuid.UUID) ([]Account, error) {
+	rows, err := q.db.QueryContext(ctx, listAccounts, ownerid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Account
+	for rows.Next() {
+		var i Account
+		if err := rows.Scan(
+			&i.ID,
+			&i.Sourceid,
+			&i.Uploadsource,
+			&i.Type,
+			&i.Name,
+			&i.Routingnumber,
+			&i.Ownerid,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTransactions = `-- name: ListTransactions :many
-SELECT id, amount, ownerid FROM transactions
+SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, ownerid, accountid FROM transactions
 WHERE ownerId = $1
 `
 
@@ -153,7 +241,23 @@ func (q *Queries) ListTransactions(ctx context.Context, ownerid uuid.UUID) ([]Tr
 	var items []Transaction
 	for rows.Next() {
 		var i Transaction
-		if err := rows.Scan(&i.ID, &i.Amount, &i.Ownerid); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Sourceid,
+			&i.Uploadsource,
+			&i.Amount,
+			&i.Payeeid,
+			&i.Payee,
+			&i.Payeefull,
+			&i.Isocurrencycode,
+			&i.Date,
+			&i.Description,
+			&i.Type,
+			&i.Checknumber,
+			&i.Updated,
+			&i.Ownerid,
+			&i.Accountid,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -204,7 +308,7 @@ const updateTransaction = `-- name: UpdateTransaction :one
 UPDATE transactions
 SET amount = $3
 WHERE id = $1 AND ownerId = $2
-RETURNING id, amount, ownerid
+RETURNING id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, ownerid, accountid
 `
 
 type UpdateTransactionParams struct {
@@ -216,7 +320,23 @@ type UpdateTransactionParams struct {
 func (q *Queries) UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (Transaction, error) {
 	row := q.db.QueryRowContext(ctx, updateTransaction, arg.ID, arg.Ownerid, arg.Amount)
 	var i Transaction
-	err := row.Scan(&i.ID, &i.Amount, &i.Ownerid)
+	err := row.Scan(
+		&i.ID,
+		&i.Sourceid,
+		&i.Uploadsource,
+		&i.Amount,
+		&i.Payeeid,
+		&i.Payee,
+		&i.Payeefull,
+		&i.Isocurrencycode,
+		&i.Date,
+		&i.Description,
+		&i.Type,
+		&i.Checknumber,
+		&i.Updated,
+		&i.Ownerid,
+		&i.Accountid,
+	)
 	return i, err
 }
 
@@ -242,6 +362,143 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.Username,
 		&i.Email,
 		&i.Passwordhash,
+	)
+	return i, err
+}
+
+const upsertAccount = `-- name: UpsertAccount :one
+INSERT INTO accounts (
+    sourceId,
+    uploadSource,
+    type,
+    name,
+    routingNumber,
+    ownerId
+)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (sourceId) DO UPDATE
+SET
+    type = $3,
+    name = $4,
+    routingNumber = $5
+RETURNING id, sourceid, uploadsource, type, name, routingnumber, ownerid
+`
+
+type UpsertAccountParams struct {
+	Sourceid      string
+	Uploadsource  UploadSource
+	Type          AccountType
+	Name          string
+	Routingnumber sql.NullString
+	Ownerid       uuid.UUID
+}
+
+func (q *Queries) UpsertAccount(ctx context.Context, arg UpsertAccountParams) (Account, error) {
+	row := q.db.QueryRowContext(ctx, upsertAccount,
+		arg.Sourceid,
+		arg.Uploadsource,
+		arg.Type,
+		arg.Name,
+		arg.Routingnumber,
+		arg.Ownerid,
+	)
+	var i Account
+	err := row.Scan(
+		&i.ID,
+		&i.Sourceid,
+		&i.Uploadsource,
+		&i.Type,
+		&i.Name,
+		&i.Routingnumber,
+		&i.Ownerid,
+	)
+	return i, err
+}
+
+const upsertTransaction = `-- name: UpsertTransaction :one
+INSERT INTO transactions (
+    sourceId,
+    uploadSource,
+    amount,
+    payeeId,
+    payee,
+    payeeFull,
+    isoCurrencyCode,
+    date,
+    description,
+    type,
+    checkNumber,
+    updated,
+    ownerId,
+    accountId
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+ON CONFLICT (sourceId) DO UPDATE
+SET
+    amount = $3,
+    payeeId = $4,
+    payee = $5,
+    payeeFull = $6,
+    isoCurrencyCode = $7,
+    date = $8,
+    description = $9,
+    type = $10,
+    checkNumber = $11,
+    updated = $12
+RETURNING id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, ownerid, accountid
+`
+
+type UpsertTransactionParams struct {
+	Sourceid        string
+	Uploadsource    UploadSource
+	Amount          int32
+	Payeeid         sql.NullString
+	Payee           sql.NullString
+	Payeefull       sql.NullString
+	Isocurrencycode string
+	Date            time.Time
+	Description     string
+	Type            TransactionType
+	Checknumber     sql.NullString
+	Updated         time.Time
+	Ownerid         uuid.UUID
+	Accountid       uuid.UUID
+}
+
+func (q *Queries) UpsertTransaction(ctx context.Context, arg UpsertTransactionParams) (Transaction, error) {
+	row := q.db.QueryRowContext(ctx, upsertTransaction,
+		arg.Sourceid,
+		arg.Uploadsource,
+		arg.Amount,
+		arg.Payeeid,
+		arg.Payee,
+		arg.Payeefull,
+		arg.Isocurrencycode,
+		arg.Date,
+		arg.Description,
+		arg.Type,
+		arg.Checknumber,
+		arg.Updated,
+		arg.Ownerid,
+		arg.Accountid,
+	)
+	var i Transaction
+	err := row.Scan(
+		&i.ID,
+		&i.Sourceid,
+		&i.Uploadsource,
+		&i.Amount,
+		&i.Payeeid,
+		&i.Payee,
+		&i.Payeefull,
+		&i.Isocurrencycode,
+		&i.Date,
+		&i.Description,
+		&i.Type,
+		&i.Checknumber,
+		&i.Updated,
+		&i.Ownerid,
+		&i.Accountid,
 	)
 	return i, err
 }

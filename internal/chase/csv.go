@@ -1,4 +1,4 @@
-package upload
+package chase
 
 import (
 	"encoding/csv"
@@ -12,7 +12,7 @@ type Date struct {
 	time.Time
 }
 
-type ChaseTransaction struct {
+type ChaseCSVTransaction struct {
 	Details        string  `csv:"Details"`
 	PostingDate    Date    `csv:"Posting Date"`
 	Description    string  `csv:"Description"`
@@ -31,8 +31,8 @@ func (date *Date) UnmarshalCSV(csv string) (err error) {
 	return err
 }
 
-func ParseChaseCSV(reader io.Reader) ([]ChaseTransaction, error) {
-	transactions := []ChaseTransaction{}
+func ParseChaseCSV(reader io.Reader) ([]ChaseCSVTransaction, error) {
+	transactions := []ChaseCSVTransaction{}
 
 	gocsv.SetCSVReader(func(in io.Reader) gocsv.CSVReader {
 		r := csv.NewReader(in)

@@ -1,3 +1,4 @@
+scalar Date
 scalar Upload
 
 directive @isAuthenticated on FIELD_DEFINITION
@@ -9,11 +10,32 @@ type User {
     username: String!
     email: String!
     transactions: [Transaction!]!
+    accounts: [Account!]!
+}
+
+type Account {
+    id: ID!
+    sourceId: String!
+    uploadSource: String!
+    type: String!
+    name: String!
+    routingNumber: String
 }
 
 type Transaction {
     id: ID!
+    sourceId: String!
+    uploadSource: String!
     amount: Float!
+    payeeId: String
+    payee: String
+    payeeFull: String
+    isoCurrencyCode: String!
+    date: Date!
+    description: String!
+    type: String!
+    checkNumber: String
+    updated: Date!
 }
 
 type Query {
@@ -31,7 +53,8 @@ type Mutation {
     deleteUser(id: ID!): User! @isAuthenticated
     createTransaction(data: TransactionInput!): Transaction! @isAuthenticated
     deleteTransaction(id: ID!): Transaction! @isAuthenticated
-    chaseTransactionsUpload(file: Upload!): Boolean! @isAuthenticated
+    chaseCSVTransactionsUpload(file: Upload!): Boolean! @isAuthenticated
+    chaseOFXTransactionsUpload(file: Upload!): Boolean! @isAuthenticated
 }
 
 input LoginInput {

@@ -4,6 +4,7 @@ go 1.22.5
 
 require (
 	github.com/99designs/gqlgen v0.17.49
+	github.com/aclindsa/ofxgo v0.1.3
 	github.com/gin-gonic/gin v1.10.0
 	github.com/gocarina/gocsv v0.0.0-20240520201108-78e41c74b4b1
 	github.com/google/uuid v1.6.0
@@ -13,6 +14,7 @@ require (
 )
 
 require (
+	github.com/aclindsa/xml v0.0.0-20201125035057-bbd5c9ec99ac // indirect
 	github.com/agnivade/levenshtein v1.1.1 // indirect
 	github.com/bytedance/sonic v1.11.6 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect

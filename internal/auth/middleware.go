@@ -32,8 +32,6 @@ func Middleware(db db.Repository) gin.HandlerFunc {
 			return
 		}
 
-		log.Printf("AuthToken: %s", authToken.Value)
-
 		userId, err := authToken.GetUserId()
 
 		if err != nil {

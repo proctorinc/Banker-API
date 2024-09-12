@@ -5,11 +5,59 @@
 package db
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 )
+
+type AccountType string
+
+const (
+	AccountTypeCREDIT     AccountType = "CREDIT"
+	AccountTypeCHECKING   AccountType = "CHECKING"
+	AccountTypeSAVINGS    AccountType = "SAVINGS"
+	AccountTypeMONEYMRKT  AccountType = "MONEYMRKT"
+	AccountTypeCREDITLINE AccountType = "CREDITLINE"
+	AccountTypeCD         AccountType = "CD"
+)
+
+func (e *AccountType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AccountType(s)
+	case string:
+		*e = AccountType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AccountType: %T", src)
+	}
+	return nil
+}
+
+type NullAccountType struct {
+	AccountType AccountType
+	Valid       bool // Valid is true if AccountType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAccountType) Scan(value interface{}) error {
+	if value == nil {
+		ns.AccountType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AccountType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAccountType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AccountType), nil
+}
 
 type Role string
 
@@ -53,10 +101,132 @@ func (ns NullRole) Value() (driver.Value, error) {
 	return string(ns.Role), nil
 }
 
+type TransactionType string
+
+const (
+	TransactionTypeCHECKCREDIT TransactionType = "CHECKCREDIT"
+	TransactionTypeDEBIT       TransactionType = "DEBIT"
+	TransactionTypeINT         TransactionType = "INT"
+	TransactionTypeDIV         TransactionType = "DIV"
+	TransactionTypeFEE         TransactionType = "FEE"
+	TransactionTypeSRVCHG      TransactionType = "SRVCHG"
+	TransactionTypeDEP         TransactionType = "DEP"
+	TransactionTypeATM         TransactionType = "ATM"
+	TransactionTypePOS         TransactionType = "POS"
+	TransactionTypeXFER        TransactionType = "XFER"
+	TransactionTypeCHECK       TransactionType = "CHECK"
+	TransactionTypePAYMENT     TransactionType = "PAYMENT"
+	TransactionTypeCASH        TransactionType = "CASH"
+	TransactionTypeDIRECTDEP   TransactionType = "DIRECTDEP"
+	TransactionTypeDIRECTDEBIT TransactionType = "DIRECTDEBIT"
+	TransactionTypeREPEATPMT   TransactionType = "REPEATPMT"
+	TransactionTypeOTHER       TransactionType = "OTHER"
+)
+
+func (e *TransactionType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = TransactionType(s)
+	case string:
+		*e = TransactionType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for TransactionType: %T", src)
+	}
+	return nil
+}
+
+type NullTransactionType struct {
+	TransactionType TransactionType
+	Valid           bool // Valid is true if TransactionType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullTransactionType) Scan(value interface{}) error {
+	if value == nil {
+		ns.TransactionType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.TransactionType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullTransactionType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.TransactionType), nil
+}
+
+type UploadSource string
+
+const (
+	UploadSourceCHASECSVUPLOAD UploadSource = "CHASE:CSV_UPLOAD"
+	UploadSourceCHASEOFXUPLOAD UploadSource = "CHASE:OFX_UPLOAD"
+	UploadSourcePLAID          UploadSource = "PLAID"
+)
+
+func (e *UploadSource) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = UploadSource(s)
+	case string:
+		*e = UploadSource(s)
+	default:
+		return fmt.Errorf("unsupported scan type for UploadSource: %T", src)
+	}
+	return nil
+}
+
+type NullUploadSource struct {
+	UploadSource UploadSource
+	Valid        bool // Valid is true if UploadSource is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullUploadSource) Scan(value interface{}) error {
+	if value == nil {
+		ns.UploadSource, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.UploadSource.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullUploadSource) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.UploadSource), nil
+}
+
+type Account struct {
+	ID            uuid.UUID
+	Sourceid      string
+	Uploadsource  UploadSource
+	Type          AccountType
+	Name          string
+	Routingnumber sql.NullString
+	Ownerid       uuid.UUID
+}
+
 type Transaction struct {
-	ID      uuid.UUID
-	Amount  int32
-	Ownerid uuid.UUID
+	ID              uuid.UUID
+	Sourceid        string
+	Uploadsource    UploadSource
+	Amount          int32
+	Payeeid         sql.NullString
+	Payee           sql.NullString
+	Payeefull       sql.NullString
+	Isocurrencycode string
+	Date            time.Time
+	Description     string
+	Type            TransactionType
+	Checknumber     sql.NullString
+	Updated         time.Time
+	Ownerid         uuid.UUID
+	Accountid       uuid.UUID
 }
 
 type User struct {

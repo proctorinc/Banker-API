@@ -27,6 +27,29 @@ DELETE FROM users
 WHERE id = $1
 RETURNING *;
 
+-- ACCOUNTS
+
+-- name: ListAccounts :many
+SELECT * FROM accounts
+WHERE ownerId = $1;
+
+-- name: UpsertAccount :one
+INSERT INTO accounts (
+    sourceId,
+    uploadSource,
+    type,
+    name,
+    routingNumber,
+    ownerId
+)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (sourceId) DO UPDATE
+SET
+    type = $3,
+    name = $4,
+    routingNumber = $5
+RETURNING *;
+
 -- TRANSACTIONS
 
 -- name: GetTransaction :one
@@ -41,6 +64,38 @@ WHERE ownerId = $1;
 -- name: CreateTransaction :one
 INSERT INTO transactions (amount, ownerId)
 VALUES ($1, $2)
+RETURNING *;
+
+-- name: UpsertTransaction :one
+INSERT INTO transactions (
+    sourceId,
+    uploadSource,
+    amount,
+    payeeId,
+    payee,
+    payeeFull,
+    isoCurrencyCode,
+    date,
+    description,
+    type,
+    checkNumber,
+    updated,
+    ownerId,
+    accountId
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+ON CONFLICT (sourceId) DO UPDATE
+SET
+    amount = $3,
+    payeeId = $4,
+    payee = $5,
+    payeeFull = $6,
+    isoCurrencyCode = $7,
+    date = $8,
+    description = $9,
+    type = $10,
+    checkNumber = $11,
+    updated = $12
 RETURNING *;
 
 -- name: UpdateTransaction :one
