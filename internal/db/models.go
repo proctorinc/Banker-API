@@ -208,6 +208,7 @@ type Account struct {
 	Type          AccountType
 	Name          string
 	Routingnumber sql.NullString
+	Updated       time.Time
 	Ownerid       uuid.UUID
 }
 

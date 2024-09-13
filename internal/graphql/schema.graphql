@@ -42,6 +42,8 @@ type Query {
     me: User @isAuthenticated
     transaction(id: ID!): Transaction @isAuthenticated
     transactions: [Transaction!]! @isAuthenticated
+    account(id: ID!): Account @isAuthenticated
+    accounts: [Account!]! @isAuthenticated
     user(id: ID!): User @isAdmin
     users: [User!]! @isAdmin
 }
@@ -50,11 +52,15 @@ type Mutation {
     register(data: RegisterInput!): User!
     login(data: LoginInput!): User
     logout: String! @isAuthenticated
-    deleteUser(id: ID!): User! @isAuthenticated
-    createTransaction(data: TransactionInput!): Transaction! @isAuthenticated
+    deleteUser: User! @isAuthenticated
     deleteTransaction(id: ID!): Transaction! @isAuthenticated
-    chaseCSVTransactionsUpload(file: Upload!): Boolean! @isAuthenticated
-    chaseOFXTransactionsUpload(file: Upload!): Boolean! @isAuthenticated
+    chaseOFXUpload(file: Upload!): Boolean! @isAuthenticated
+}
+
+type UploadResponse {
+    success: Boolean!
+    accountsUpdated: Int!
+    transactionsUpdated: Int!
 }
 
 input LoginInput {
@@ -66,8 +72,4 @@ input RegisterInput {
     username: String!
     email: String!
     password: String!
-}
-
-input TransactionInput {
-    amount: Float!
 }

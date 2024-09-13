@@ -29,6 +29,11 @@ RETURNING *;
 
 -- ACCOUNTS
 
+-- name: GetAccount :one
+SELECT * FROM accounts
+WHERE id = $1 and ownerId = $2
+LIMIT 1;
+
 -- name: ListAccounts :many
 SELECT * FROM accounts
 WHERE ownerId = $1;
@@ -40,31 +45,29 @@ INSERT INTO accounts (
     type,
     name,
     routingNumber,
+    updated,
     ownerId
 )
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 ON CONFLICT (sourceId) DO UPDATE
 SET
     type = $3,
     name = $4,
-    routingNumber = $5
+    routingNumber = $5,
+    updated = $6
+-- WHERE ownerId = $7
 RETURNING *;
 
 -- TRANSACTIONS
 
 -- name: GetTransaction :one
 SELECT * FROM transactions
-WHERE id = $1
+WHERE id = $1 and ownerId = $2
 LIMIT 1;
 
 -- name: ListTransactions :many
 SELECT * FROM transactions
 WHERE ownerId = $1;
-
--- name: CreateTransaction :one
-INSERT INTO transactions (amount, ownerId)
-VALUES ($1, $2)
-RETURNING *;
 
 -- name: UpsertTransaction :one
 INSERT INTO transactions (
@@ -96,6 +99,7 @@ SET
     type = $10,
     checkNumber = $11,
     updated = $12
+-- WHERE ownerId = $13
 RETURNING *;
 
 -- name: UpdateTransaction :one

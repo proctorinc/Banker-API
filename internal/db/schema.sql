@@ -65,6 +65,7 @@ CREATE TABLE accounts (
     type ACCOUNT_TYPE NOT NULL,
     name VARCHAR(255) NOT NULL,
     routingNumber VARCHAR(255),
+    updated DATE NOT NULL DEFAULT NOW(),
     ownerId UUID REFERENCES users (id) NOT NULL
 );
 
@@ -85,6 +86,3 @@ CREATE TABLE transactions (
     ownerId UUID REFERENCES users (id) NOT NULL,
     accountId UUID REFERENCES accounts (id) NOT NULL
 );
-
-alter table transactions
-  add constraint check_min_length check (length(sourceid) >= 1);

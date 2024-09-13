@@ -75,8 +75,6 @@ func parseBankAccount(response *ofxgo.Response) (*ChaseOFXResult, error) {
 		}
 		var transactions []ChaseOFXTransaction
 
-		log.Printf("%d transactions in BA", len(stmt.BankTranList.Transactions))
-
 		for _, tx := range stmt.BankTranList.Transactions {
 			amount, _ := tx.TrnAmt.Float32()
 			name := tx.Name.String()
@@ -84,9 +82,6 @@ func parseBankAccount(response *ofxgo.Response) (*ChaseOFXResult, error) {
 			if tx.Payee != nil {
 				name = tx.Payee.Name.String()
 			}
-
-			log.Printf("FiTID: %s", tx.FiTID.String())
-			log.Printf("SrvrTID: %s", tx.SrvrTID)
 
 			transaction := ChaseOFXTransaction{
 				Id:          tx.FiTID.String(),
@@ -100,8 +95,6 @@ func parseBankAccount(response *ofxgo.Response) (*ChaseOFXResult, error) {
 				Description: tx.Memo.String(),
 			}
 
-			log.Println("end transaction")
-
 			transactions = append(transactions, transaction)
 		}
 
@@ -113,7 +106,7 @@ func parseBankAccount(response *ofxgo.Response) (*ChaseOFXResult, error) {
 		return result, nil
 	}
 
-	return nil, fmt.Errorf("Something went wrong parsing bank account")
+	return nil, fmt.Errorf("ofx: failed to parse bank account data")
 }
 
 func parseCreditCard(response *ofxgo.Response) (*ChaseOFXResult, error) {
@@ -130,8 +123,6 @@ func parseCreditCard(response *ofxgo.Response) (*ChaseOFXResult, error) {
 		}
 		var transactions []ChaseOFXTransaction
 
-		log.Printf("%d transactions in CC", len(stmt.BankTranList.Transactions))
-
 		for _, tx := range stmt.BankTranList.Transactions {
 			amount, _ := tx.TrnAmt.Float32()
 			name := tx.Name.String()
@@ -139,9 +130,6 @@ func parseCreditCard(response *ofxgo.Response) (*ChaseOFXResult, error) {
 			if tx.Payee != nil {
 				name = tx.Payee.Name.String()
 			}
-
-			log.Printf("FiTID: %s", tx.FiTID.String())
-			log.Printf("SrvrTID: %s", tx.SrvrTID)
 
 			transaction := ChaseOFXTransaction{
 				Id:          tx.FiTID.String(),
@@ -155,8 +143,6 @@ func parseCreditCard(response *ofxgo.Response) (*ChaseOFXResult, error) {
 				Description: tx.Memo.String(),
 			}
 
-			log.Println("end transaction")
-
 			transactions = append(transactions, transaction)
 		}
 
@@ -168,5 +154,5 @@ func parseCreditCard(response *ofxgo.Response) (*ChaseOFXResult, error) {
 		return result, nil
 	}
 
-	return nil, fmt.Errorf("Something went wrong parsing credit card")
+	return nil, fmt.Errorf("ofx: failed to parse credit card data")
 }

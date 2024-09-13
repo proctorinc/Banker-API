@@ -13,40 +13,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const createTransaction = `-- name: CreateTransaction :one
-INSERT INTO transactions (amount, ownerId)
-VALUES ($1, $2)
-RETURNING id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, ownerid, accountid
-`
-
-type CreateTransactionParams struct {
-	Amount  int32
-	Ownerid uuid.UUID
-}
-
-func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error) {
-	row := q.db.QueryRowContext(ctx, createTransaction, arg.Amount, arg.Ownerid)
-	var i Transaction
-	err := row.Scan(
-		&i.ID,
-		&i.Sourceid,
-		&i.Uploadsource,
-		&i.Amount,
-		&i.Payeeid,
-		&i.Payee,
-		&i.Payeefull,
-		&i.Isocurrencycode,
-		&i.Date,
-		&i.Description,
-		&i.Type,
-		&i.Checknumber,
-		&i.Updated,
-		&i.Ownerid,
-		&i.Accountid,
-	)
-	return i, err
-}
-
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (username, email, passwordHash)
 VALUES ($1, $2, $3)
@@ -120,16 +86,50 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) (User, error) {
 	return i, err
 }
 
-const getTransaction = `-- name: GetTransaction :one
+const getAccount = `-- name: GetAccount :one
 
-SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, ownerid, accountid FROM transactions
-WHERE id = $1
+SELECT id, sourceid, uploadsource, type, name, routingnumber, updated, ownerid FROM accounts
+WHERE id = $1 and ownerId = $2
 LIMIT 1
 `
 
+type GetAccountParams struct {
+	ID      uuid.UUID
+	Ownerid uuid.UUID
+}
+
+// ACCOUNTS
+func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (Account, error) {
+	row := q.db.QueryRowContext(ctx, getAccount, arg.ID, arg.Ownerid)
+	var i Account
+	err := row.Scan(
+		&i.ID,
+		&i.Sourceid,
+		&i.Uploadsource,
+		&i.Type,
+		&i.Name,
+		&i.Routingnumber,
+		&i.Updated,
+		&i.Ownerid,
+	)
+	return i, err
+}
+
+const getTransaction = `-- name: GetTransaction :one
+
+SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, ownerid, accountid FROM transactions
+WHERE id = $1 and ownerId = $2
+LIMIT 1
+`
+
+type GetTransactionParams struct {
+	ID      uuid.UUID
+	Ownerid uuid.UUID
+}
+
 // TRANSACTIONS
-func (q *Queries) GetTransaction(ctx context.Context, id uuid.UUID) (Transaction, error) {
-	row := q.db.QueryRowContext(ctx, getTransaction, id)
+func (q *Queries) GetTransaction(ctx context.Context, arg GetTransactionParams) (Transaction, error) {
+	row := q.db.QueryRowContext(ctx, getTransaction, arg.ID, arg.Ownerid)
 	var i Transaction
 	err := row.Scan(
 		&i.ID,
@@ -190,12 +190,10 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 }
 
 const listAccounts = `-- name: ListAccounts :many
-
-SELECT id, sourceid, uploadsource, type, name, routingnumber, ownerid FROM accounts
+SELECT id, sourceid, uploadsource, type, name, routingnumber, updated, ownerid FROM accounts
 WHERE ownerId = $1
 `
 
-// ACCOUNTS
 func (q *Queries) ListAccounts(ctx context.Context, ownerid uuid.UUID) ([]Account, error) {
 	rows, err := q.db.QueryContext(ctx, listAccounts, ownerid)
 	if err != nil {
@@ -212,6 +210,7 @@ func (q *Queries) ListAccounts(ctx context.Context, ownerid uuid.UUID) ([]Accoun
 			&i.Type,
 			&i.Name,
 			&i.Routingnumber,
+			&i.Updated,
 			&i.Ownerid,
 		); err != nil {
 			return nil, err
@@ -373,15 +372,17 @@ INSERT INTO accounts (
     type,
     name,
     routingNumber,
+    updated,
     ownerId
 )
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 ON CONFLICT (sourceId) DO UPDATE
 SET
     type = $3,
     name = $4,
-    routingNumber = $5
-RETURNING id, sourceid, uploadsource, type, name, routingnumber, ownerid
+    routingNumber = $5,
+    updated = $6
+RETURNING id, sourceid, uploadsource, type, name, routingnumber, updated, ownerid
 `
 
 type UpsertAccountParams struct {
@@ -390,9 +391,11 @@ type UpsertAccountParams struct {
 	Type          AccountType
 	Name          string
 	Routingnumber sql.NullString
+	Updated       time.Time
 	Ownerid       uuid.UUID
 }
 
+// WHERE ownerId = $7
 func (q *Queries) UpsertAccount(ctx context.Context, arg UpsertAccountParams) (Account, error) {
 	row := q.db.QueryRowContext(ctx, upsertAccount,
 		arg.Sourceid,
@@ -400,6 +403,7 @@ func (q *Queries) UpsertAccount(ctx context.Context, arg UpsertAccountParams) (A
 		arg.Type,
 		arg.Name,
 		arg.Routingnumber,
+		arg.Updated,
 		arg.Ownerid,
 	)
 	var i Account
@@ -410,6 +414,7 @@ func (q *Queries) UpsertAccount(ctx context.Context, arg UpsertAccountParams) (A
 		&i.Type,
 		&i.Name,
 		&i.Routingnumber,
+		&i.Updated,
 		&i.Ownerid,
 	)
 	return i, err
@@ -465,6 +470,7 @@ type UpsertTransactionParams struct {
 	Accountid       uuid.UUID
 }
 
+// WHERE ownerId = $13
 func (q *Queries) UpsertTransaction(ctx context.Context, arg UpsertTransactionParams) (Transaction, error) {
 	row := q.db.QueryRowContext(ctx, upsertTransaction,
 		arg.Sourceid,

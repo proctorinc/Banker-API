@@ -19,6 +19,8 @@ type RegisterInput struct {
 	Password string `json:"password"`
 }
 
-type TransactionInput struct {
-	Amount float64 `json:"amount"`
+type UploadResponse struct {
+	Success             bool `json:"success"`
+	AccountsUpdated     int  `json:"accountsUpdated"`
+	TransactionsUpdated int  `json:"transactionsUpdated"`
 }

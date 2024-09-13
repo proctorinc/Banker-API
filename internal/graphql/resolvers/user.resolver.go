@@ -91,12 +91,13 @@ func (r *mutationResolver) Register(ctx context.Context, data gen.RegisterInput)
 	})
 }
 
-func (r *mutationResolver) DeleteUser(ctx context.Context, userId uuid.UUID) (*db.User, error) {
-	user, err := r.Repository.DeleteUser(ctx, userId)
+func (r *mutationResolver) DeleteUser(ctx context.Context) (*db.User, error) {
+	user := auth.GetCurrentUser(ctx)
+	deleted, err := r.Repository.DeleteUser(ctx, user.ID)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &user, nil
+	return &deleted, nil
 }

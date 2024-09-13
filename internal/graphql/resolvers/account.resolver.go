@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/proctorinc/banker/internal/auth"
 	"github.com/proctorinc/banker/internal/db"
 	"github.com/proctorinc/banker/internal/graphql/utils"
 )
@@ -38,4 +39,26 @@ func (r *accountResolver) RoutingNumber(ctx context.Context, account *db.Account
 	}
 
 	return nil, nil
+}
+
+// Queries
+
+func (r *queryResolver) Account(ctx context.Context, accountId uuid.UUID) (*db.Account, error) {
+	user := auth.GetCurrentUser(ctx)
+	account, err := r.Repository.GetAccount(ctx, db.GetAccountParams{
+		ID:      accountId,
+		Ownerid: user.ID,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &account, nil
+}
+
+func (r *queryResolver) Accounts(ctx context.Context) ([]db.Account, error) {
+	user := auth.GetCurrentUser(ctx)
+
+	return r.Repository.ListAccounts(ctx, user.ID)
 }

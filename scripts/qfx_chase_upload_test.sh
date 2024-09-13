@@ -4,7 +4,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 if (curl localhost:8080/query --cookie "auth-token=$1" \
-  -F operations='{ "query": "mutation ($file: Upload!) { chaseOFXTransactionsUpload(file: $file) }", "variables": { "file": null } }' \
+  -F operations='{ "query": "mutation ($file: Upload!) { chaseOFXUpload(file: $file) }", "variables": { "file": null } }' \
   -F map='{ "0": ["variables.file"] }' \
   -F 0=@$PWD/scripts/test-data/bank_transactions.QFX); then
   echo "done"
@@ -13,7 +13,7 @@ else
 fi
 
 if (curl localhost:8080/query --cookie "auth-token=$1" \
-  -F operations='{ "query": "mutation ($file: Upload!) { chaseOFXTransactionsUpload(file: $file) }", "variables": { "file": null } }' \
+  -F operations='{ "query": "mutation ($file: Upload!) { chaseOFXUpload(file: $file) }", "variables": { "file": null } }' \
   -F map='{ "0": ["variables.file"] }' \
   -F 0=@$PWD/scripts/test-data/cc_transactions.QFX); then
   echo "done"

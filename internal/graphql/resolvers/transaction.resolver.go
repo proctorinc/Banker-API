@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql"
@@ -14,8 +13,19 @@ import (
 	"github.com/proctorinc/banker/internal/auth"
 	"github.com/proctorinc/banker/internal/chase"
 	"github.com/proctorinc/banker/internal/db"
-	gen "github.com/proctorinc/banker/internal/graphql/generated"
 )
+
+type UploadResponse struct {
+	Success              bool
+	AccountsUploaded     int
+	TransactionsUploaded int
+}
+
+var UploadFailed = UploadResponse{
+	Success:              false,
+	AccountsUploaded:     0,
+	TransactionsUploaded: 0,
+}
 
 type transactionResolver struct{ *Resolver }
 
@@ -90,7 +100,11 @@ func (r *transactionResolver) Updated(ctx context.Context, transaction *db.Trans
 // Queries
 
 func (r *queryResolver) Transaction(ctx context.Context, transactionId uuid.UUID) (*db.Transaction, error) {
-	transaction, err := r.Repository.GetTransaction(ctx, transactionId)
+	user := auth.GetCurrentUser(ctx)
+	transaction, err := r.Repository.GetTransaction(ctx, db.GetTransactionParams{
+		ID:      transactionId,
+		Ownerid: user.ID,
+	})
 
 	if err != nil {
 		return nil, err
@@ -107,21 +121,6 @@ func (r *queryResolver) Transactions(ctx context.Context) ([]db.Transaction, err
 
 // Mutations
 
-func (r *mutationResolver) CreateTransaction(ctx context.Context, data gen.TransactionInput) (*db.Transaction, error) {
-	user := auth.GetCurrentUser(ctx)
-
-	transaction, err := r.Repository.CreateTransaction(ctx, db.CreateTransactionParams{
-		Ownerid: user.ID,
-		Amount:  int32(data.Amount * 100),
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &transaction, nil
-}
-
 func (r *mutationResolver) DeleteTransaction(ctx context.Context, id uuid.UUID) (*db.Transaction, error) {
 	transaction, err := r.Repository.DeleteTransaction(ctx, id)
 
@@ -132,31 +131,10 @@ func (r *mutationResolver) DeleteTransaction(ctx context.Context, id uuid.UUID) 
 	return &transaction, nil
 }
 
-func (r *mutationResolver) ChaseCSVTransactionsUpload(ctx context.Context, reader graphql.Upload) (bool, error) {
-	if !bytes.HasSuffix([]byte(reader.Filename), []byte(".csv")) {
-		log.Printf("Invalid extension: %s", reader.Filename)
-		return false, fmt.Errorf("Invalid file extension. .CSV required")
-	}
+func (r *mutationResolver) ChaseOFXUpload(ctx context.Context, reader graphql.Upload) (bool, error) {
+	accountsUploaded := 0
+	transactionsUploaded := 0
 
-	user := auth.GetCurrentUser(ctx)
-	transactions, err := chase.ParseChaseCSV(reader.File)
-
-	if err != nil {
-		return false, err
-	}
-
-	for _, transaction := range transactions {
-		r.Repository.CreateTransaction(ctx, db.CreateTransactionParams{
-			Ownerid: user.ID,
-			Amount:  int32(transaction.Amount * 100),
-		})
-	}
-
-	return true, nil
-}
-
-func (r *mutationResolver) ChaseOFXTransactionsUpload(ctx context.Context, reader graphql.Upload) (bool, error) {
-	log.Printf("File extension: %s", strings.ToLower(reader.Filename))
 	if !bytes.HasSuffix([]byte(reader.Filename), []byte(".ofx")) &&
 		!bytes.HasSuffix([]byte(reader.Filename), []byte(".QFX")) &&
 		!bytes.HasSuffix([]byte(reader.Filename), []byte(".")) {
@@ -166,18 +144,17 @@ func (r *mutationResolver) ChaseOFXTransactionsUpload(ctx context.Context, reade
 
 	user := auth.GetCurrentUser(ctx)
 	ofxResult, err := chase.ParseChaseOFX(reader.File)
-	ofxAccount := ofxResult.Account
 
 	if err != nil {
 		return false, err
 	}
 
 	account, err := r.Repository.UpsertAccount(ctx, db.UpsertAccountParams{
-		Sourceid:      ofxAccount.AccountId,
+		Sourceid:      ofxResult.Account.AccountId,
 		Uploadsource:  db.UploadSourceCHASEOFXUPLOAD,
-		Name:          ofxAccount.Name,
-		Type:          db.AccountType(ofxAccount.Type),
-		Routingnumber: sql.NullString{String: ofxAccount.BankId, Valid: len(ofxAccount.BankId) > 0},
+		Name:          ofxResult.Account.Name,
+		Type:          db.AccountType(ofxResult.Account.Type),
+		Routingnumber: sql.NullString{String: ofxResult.Account.BankId, Valid: len(ofxResult.Account.BankId) > 0},
 		Ownerid:       user.ID,
 	})
 
@@ -185,10 +162,11 @@ func (r *mutationResolver) ChaseOFXTransactionsUpload(ctx context.Context, reade
 		return false, err
 	}
 
-	log.Printf("Resolver transactions: %d", len(ofxResult.Transactions))
+	// Increment successful account upload
+	accountsUploaded++
 
 	for _, tx := range ofxResult.Transactions {
-		r.Repository.UpsertTransaction(ctx, db.UpsertTransactionParams{
+		_, err := r.Repository.UpsertTransaction(ctx, db.UpsertTransactionParams{
 			Ownerid:         user.ID,
 			Amount:          int32(tx.Amount * 100),
 			Payeeid:         sql.NullString{String: tx.PayeeId, Valid: len(tx.PayeeId) > 0},
@@ -204,7 +182,14 @@ func (r *mutationResolver) ChaseOFXTransactionsUpload(ctx context.Context, reade
 			Checknumber:     sql.NullString{String: tx.CheckNumber, Valid: len(tx.CheckNumber) > 0},
 			Accountid:       account.ID,
 		})
+
+		// Increment successful transaction upload
+		if err == nil {
+			transactionsUploaded++
+		}
 	}
+
+	log.Printf("Successful upload. %d account(s), %d transaction(s) uploaded", accountsUploaded, transactionsUploaded)
 
 	return true, nil
 }
