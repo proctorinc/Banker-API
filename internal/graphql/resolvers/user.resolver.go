@@ -10,8 +10,6 @@ import (
 	gen "github.com/proctorinc/banker/internal/graphql/generated"
 )
 
-type userResolver struct{ *Resolver }
-
 func (r *userResolver) ID(ctx context.Context, user *db.User) (string, error) {
 	return user.ID.String(), nil
 }

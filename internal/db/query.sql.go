@@ -115,6 +115,32 @@ func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (Account
 	return i, err
 }
 
+const getTotalIncome = `-- name: GetTotalIncome :one
+SELECT SUM(amount) FROM transactions
+WHERE ownerId = $1 AND amount < 0
+`
+
+func (q *Queries) GetTotalIncome(ctx context.Context, ownerid uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getTotalIncome, ownerid)
+	var sum int64
+	err := row.Scan(&sum)
+	return sum, err
+}
+
+const getTotalSpending = `-- name: GetTotalSpending :one
+
+SELECT SUM(amount) FROM transactions
+WHERE ownerId = $1 AND amount > 0
+`
+
+// STATS
+func (q *Queries) GetTotalSpending(ctx context.Context, ownerid uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getTotalSpending, ownerid)
+	var sum int64
+	err := row.Scan(&sum)
+	return sum, err
+}
+
 const getTransaction = `-- name: GetTransaction :one
 
 SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, ownerid, accountid FROM transactions

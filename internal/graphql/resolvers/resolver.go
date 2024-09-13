@@ -14,6 +14,9 @@ type Resolver struct {
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+type accountResolver struct{ *Resolver }
+type transactionResolver struct{ *Resolver }
+type userResolver struct{ *Resolver }
 
 func (r *Resolver) Mutation() gen.MutationResolver {
 	return &mutationResolver{r}

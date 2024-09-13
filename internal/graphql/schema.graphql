@@ -46,6 +46,9 @@ type Query {
     accounts: [Account!]! @isAuthenticated
     user(id: ID!): User @isAdmin
     users: [User!]! @isAdmin
+    spendingTotal: Float! @isAuthenticated
+    incomeTotal: Float! @isAuthenticated
+    # stats(StatsInput): StatsResponse! @isAuthenticated
 }
 
 type Mutation {
@@ -57,11 +60,36 @@ type Mutation {
     chaseOFXUpload(file: Upload!): Boolean! @isAuthenticated
 }
 
-type UploadResponse {
-    success: Boolean!
-    accountsUpdated: Int!
-    transactionsUpdated: Int!
-}
+# type UploadResponse {
+#     success: Boolean!
+#     accountsUpdated: Int!
+#     transactionsUpdated: Int!
+# }
+
+# type StatsResponse {
+#     spending: SpendingStats
+#     income: IncomeStats
+#     net: NetStats
+# }
+
+# type SpendingStats {
+#     total: Float!
+#     transactions: [Transation!]!
+# }
+
+# type IncomeStats {
+#     total: Float!
+#     transactions: [Transaction!]!
+# }
+
+# type NetStats {
+#     total: Float!
+# }
+
+# input StatsInput {
+#     startDate: Date!
+#     endDate: Date!
+# }
 
 input LoginInput {
     email: String!

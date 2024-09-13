@@ -55,7 +55,7 @@ SET
     name = $4,
     routingNumber = $5,
     updated = $6
--- WHERE ownerId = $7
+-- WHERE ownerId = $7 -- HOW DO WE INCLUDE OWNER ID FOR UPDATE
 RETURNING *;
 
 -- TRANSACTIONS
@@ -99,7 +99,7 @@ SET
     type = $10,
     checkNumber = $11,
     updated = $12
--- WHERE ownerId = $13
+-- WHERE ownerId = $13 -- HOW DO WE INCLUDE OWNER ID FOR UPDATE
 RETURNING *;
 
 -- name: UpdateTransaction :one
@@ -112,3 +112,13 @@ RETURNING *;
 DELETE FROM transactions
 WHERE id = $1
 RETURNING *;
+
+-- STATS
+
+-- name: GetTotalSpending :one
+SELECT SUM(amount) FROM transactions -- HOW DO WE DEFAULT SUM TO 0?
+WHERE ownerId = $1 AND amount > 0;
+
+-- name: GetTotalIncome :one
+SELECT SUM(amount) FROM transactions -- HOW DO WE DEFAULT SUM TO 0?
+WHERE ownerId = $1 AND amount < 0;

@@ -27,6 +27,8 @@ type Repository interface {
 	ListTransactions(ctx context.Context, ownerid uuid.UUID) ([]Transaction, error)
 	UpsertTransaction(ctx context.Context, arg UpsertTransactionParams) (Transaction, error)
 	DeleteTransaction(ctx context.Context, id uuid.UUID) (Transaction, error)
+	GetTotalSpending(ctx context.Context, id uuid.UUID) (int64, error)
+	GetTotalIncome(ctx context.Context, id uuid.UUID) (int64, error)
 }
 
 type repositoryService struct {
