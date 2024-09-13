@@ -7,7 +7,7 @@ else
 fi
 
 echo "removing graphql models file"
-if (rm $PWD/internal/graphql/models.go && rm $PWD/internal/graphql/models.go) || true
+if (rm -r $PWD/internal/graphql/generated)
 then
     echo "done"
 fi

@@ -8,11 +8,13 @@ import (
 	"github.com/proctorinc/banker/internal/auth"
 	"github.com/proctorinc/banker/internal/db"
 	"github.com/proctorinc/banker/internal/graphql/directives"
+	gen "github.com/proctorinc/banker/internal/graphql/generated"
+	"github.com/proctorinc/banker/internal/graphql/resolvers"
 )
 
 func GraphqlHandler(repo db.Repository) gin.HandlerFunc {
-	config := Config{
-		Resolvers: &Resolver{
+	config := gen.Config{
+		Resolvers: &resolvers.Resolver{
 			Repository:  repo,
 			AuthService: *auth.NewAuthService(repo),
 		},
@@ -22,7 +24,7 @@ func GraphqlHandler(repo db.Repository) gin.HandlerFunc {
 	config.Directives.IsAdmin = directives.IsAdmin
 
 	handler := handler.NewDefaultServer(
-		NewExecutableSchema(config),
+		gen.NewExecutableSchema(config),
 	)
 
 	handler.AddTransport(transport.MultipartForm{

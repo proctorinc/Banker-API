@@ -4,8 +4,8 @@ schema:
 
 # Where should the generated server code go?
 exec:
-  filename: internal/graphql/generated.go
-  package: graphql
+  filename: internal/graphql/generated/generated.go
+  package: gen
 
 # Uncomment to enable federation
 # federation:
@@ -14,12 +14,12 @@ exec:
 
 # Where should any generated models go?
 model:
-  filename: internal/graphql/models.go
-  package: graphql
+  filename: internal/graphql/generated/models.go
+  package: gen
 
 # Where should the resolver implementations go?
 resolver:
-  filename: internal/graphql/resolver.go
+  filename: internal/graphql/resolvers/resolver.go
   type: Resolver
   # Optional: turn on to not generate template comments above resolvers
   # omit_template_comment: false
