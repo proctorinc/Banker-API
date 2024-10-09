@@ -37,6 +37,7 @@ type Repository interface {
 	GetMerchantByKey(ctx context.Context, arg GetMerchantByKeyParams) (Merchant, error)
 	ListMerchants(ctx context.Context, ownerid uuid.UUID) ([]Merchant, error)
 	CreateMerchant(ctx context.Context, arg CreateMerchantParams) (Merchant, error)
+	LinkMerchant(ctx context.Context, arg LinkMerchantParams) (*Merchant, error)
 
 	// Merchant keys
 	CreateMerchantKey(ctx context.Context, arg CreateMerchantKeyParams) (MerchantKey, error)
@@ -75,23 +76,37 @@ func (r repositoryService) withTx(ctx context.Context, txFn func(*Queries) error
 	return err
 }
 
-func (r *repositoryService) LinkMerchant(ctx context.Context) (*Merchant, error) {
-	book := new(Book)
+type LinkMerchantParams struct {
+	MerchantName string
+	KeyMatch     string
+	UploadSource UploadSource
+	UserId       uuid.UUID
+}
+
+func (r *repositoryService) LinkMerchant(ctx context.Context, arg LinkMerchantParams) (*Merchant, error) {
+	merchant := new(Merchant)
+
 	err := r.withTx(ctx, func(q *Queries) error {
-		res, err := q.CreateBook(ctx, bookArg)
+		res, err := q.CreateMerchant(ctx, CreateMerchantParams{
+			Name:    arg.MerchantName,
+			Ownerid: arg.UserId,
+		})
+
 		if err != nil {
 			return err
 		}
-		for _, authorID := range authorIDs {
-			if err := q.SetBookAuthor(ctx, SetBookAuthorParams{
-				BookID:   res.ID,
-				AuthorID: authorID,
-			}); err != nil {
-				return err
-			}
+
+		_, err = q.CreateMerchantKey(ctx, CreateMerchantKeyParams{
+			Keymatch:     arg.KeyMatch,
+			Uploadsource: arg.UploadSource,
+			Merchantid:   res.ID,
+		})
+
+		if err != nil {
+			return err
 		}
-		book = &res
+		merchant = &res
 		return nil
 	})
-	return book, err
+	return merchant, err
 }

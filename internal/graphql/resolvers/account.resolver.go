@@ -151,31 +151,30 @@ func (r *mutationResolver) ChaseOFXUpload(ctx context.Context, reader graphql.Up
 	accountsUploaded++
 
 	for _, tx := range ofxResult.Transactions {
-		merchant, err := r.Repository.GetMerchantByKey(ctx, db.GetMerchantByKeyParams{
-			Concat:       tx.Payee,
+		merchant := new(db.Merchant)
+		// Check if the transaction matches a merchant keymatch
+		res, err := r.Repository.GetMerchantByKey(ctx, db.GetMerchantByKeyParams{
+			StartsWith:   tx.Payee,
 			Uploadsource: db.UploadSourceCHASEOFXUPLOAD,
 		})
 
-		if err != nil {
-			merchant, err = r.Repository.CreateMerchant(ctx, db.CreateMerchantParams{
-				Name:    tx.Payee,
-				Ownerid: user.ID,
-			})
-
-			if err != nil {
-				return false, err
-			}
-
-			_, err = r.Repository.CreateMerchantKey(ctx, db.CreateMerchantKeyParams{
-				Keymatch:     tx.Payee,
-				Uploadsource: db.UploadSourceCHASEOFXUPLOAD,
-				Merchantid:   merchant.ID,
-			})
-
-			if err != nil {
-				return false, err
-			}
+		if err == nil {
+			merchant = &res
 		}
+
+		if err != nil {
+			merchant, err = r.Repository.LinkMerchant(ctx, db.LinkMerchantParams{
+				MerchantName: tx.Payee,
+				KeyMatch:     tx.Payee,
+				UploadSource: db.UploadSourceCHASEOFXUPLOAD,
+				UserId:       user.ID,
+			})
+		}
+
+		if err != nil {
+			return false, err
+		}
+
 		_, err = r.Repository.UpsertTransaction(ctx, db.UpsertTransactionParams{
 			Ownerid:         user.ID,
 			Amount:          int32(tx.Amount * 100),

@@ -35,7 +35,6 @@ func Middleware(db db.Repository) gin.HandlerFunc {
 		userId, err := authToken.GetUserId()
 
 		if err != nil {
-			log.Println("Invalid token provided #1")
 			ctx.Next()
 			return
 		}
@@ -43,7 +42,6 @@ func Middleware(db db.Repository) gin.HandlerFunc {
 		user, err := db.GetUser(ctx, userId)
 
 		if err != nil {
-			log.Println("Invalid token provided #2")
 			ctx.Next()
 			return
 		}

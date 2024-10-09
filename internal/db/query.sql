@@ -123,7 +123,7 @@ LIMIT 1;
 
 -- name: GetMerchantByKey :one
 SELECT m.id, m.name, m.ownerId FROM merchants AS m JOIN merchant_keys AS k ON m.id = k.merchantId
-WHERE uploadSource = $1 AND keymatch LIKE CONCAT('%', $2,'%');
+WHERE uploadSource = $1 AND starts_with(keymatch, $2);
 
 -- name: ListMerchants :many
 SELECT * FROM merchants

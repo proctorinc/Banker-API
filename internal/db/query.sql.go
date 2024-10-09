@@ -223,16 +223,16 @@ func (q *Queries) GetMerchant(ctx context.Context, arg GetMerchantParams) (Merch
 
 const getMerchantByKey = `-- name: GetMerchantByKey :one
 SELECT m.id, m.name, m.ownerId FROM merchants AS m JOIN merchant_keys AS k ON m.id = k.merchantId
-WHERE uploadSource = $1 AND keymatch LIKE CONCAT('%', $2,'%')
+WHERE uploadSource = $1 AND starts_with(keymatch, $2)
 `
 
 type GetMerchantByKeyParams struct {
 	Uploadsource UploadSource
-	Concat       interface{}
+	StartsWith   string
 }
 
 func (q *Queries) GetMerchantByKey(ctx context.Context, arg GetMerchantByKeyParams) (Merchant, error) {
-	row := q.db.QueryRowContext(ctx, getMerchantByKey, arg.Uploadsource, arg.Concat)
+	row := q.db.QueryRowContext(ctx, getMerchantByKey, arg.Uploadsource, arg.StartsWith)
 	var i Merchant
 	err := row.Scan(&i.ID, &i.Name, &i.Ownerid)
 	return i, err
