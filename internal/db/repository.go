@@ -21,14 +21,25 @@ type Repository interface {
 	GetAccount(ctx context.Context, arg GetAccountParams) (Account, error)
 	ListAccounts(ctx context.Context, ownerid uuid.UUID) ([]Account, error)
 	UpsertAccount(ctx context.Context, arg UpsertAccountParams) (Account, error)
+	GetAccountSpending(ctx context.Context, arg GetAccountSpendingParams) (interface{}, error) //(GetAccountSpendingRow, error)
+	GetAccountIncome(ctx context.Context, arg GetAccountIncomeParams) (interface{}, error)     //(GetAccountIncomeRow, error)
 
 	// Transactions
 	GetTransaction(ctx context.Context, arg GetTransactionParams) (Transaction, error)
 	ListTransactions(ctx context.Context, ownerid uuid.UUID) ([]Transaction, error)
 	UpsertTransaction(ctx context.Context, arg UpsertTransactionParams) (Transaction, error)
 	DeleteTransaction(ctx context.Context, id uuid.UUID) (Transaction, error)
-	GetTotalSpending(ctx context.Context, id uuid.UUID) (int64, error)
-	GetTotalIncome(ctx context.Context, id uuid.UUID) (int64, error)
+	GetTotalSpending(ctx context.Context, id uuid.UUID) (interface{}, error) //(GetTotalSpendingRow, error)
+	GetTotalIncome(ctx context.Context, id uuid.UUID) (interface{}, error)   //(GetTotalIncomeRow, error)
+
+	// Merchants
+	GetMerchant(ctx context.Context, arg GetMerchantParams) (Merchant, error)
+	GetMerchantByKey(ctx context.Context, arg GetMerchantByKeyParams) (Merchant, error)
+	ListMerchants(ctx context.Context, ownerid uuid.UUID) ([]Merchant, error)
+	CreateMerchant(ctx context.Context, arg CreateMerchantParams) (Merchant, error)
+
+	// Merchant keys
+	CreateMerchantKey(ctx context.Context, arg CreateMerchantKeyParams) (MerchantKey, error)
 }
 
 type repositoryService struct {
@@ -62,4 +73,25 @@ func (r repositoryService) withTx(ctx context.Context, txFn func(*Queries) error
 		err = tx.Commit()
 	}
 	return err
+}
+
+func (r *repositoryService) LinkMerchant(ctx context.Context) (*Merchant, error) {
+	book := new(Book)
+	err := r.withTx(ctx, func(q *Queries) error {
+		res, err := q.CreateBook(ctx, bookArg)
+		if err != nil {
+			return err
+		}
+		for _, authorID := range authorIDs {
+			if err := q.SetBookAuthor(ctx, SetBookAuthorParams{
+				BookID:   res.ID,
+				AuthorID: authorID,
+			}); err != nil {
+				return err
+			}
+		}
+		book = &res
+		return nil
+	})
+	return book, err
 }

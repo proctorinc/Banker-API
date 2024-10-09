@@ -104,7 +104,7 @@ func (ns NullRole) Value() (driver.Value, error) {
 type TransactionType string
 
 const (
-	TransactionTypeCHECKCREDIT TransactionType = "CHECKCREDIT"
+	TransactionTypeCREDIT      TransactionType = "CREDIT"
 	TransactionTypeDEBIT       TransactionType = "DEBIT"
 	TransactionTypeINT         TransactionType = "INT"
 	TransactionTypeDIV         TransactionType = "DIV"
@@ -212,6 +212,19 @@ type Account struct {
 	Ownerid       uuid.UUID
 }
 
+type Merchant struct {
+	ID      uuid.UUID
+	Name    string
+	Ownerid uuid.UUID
+}
+
+type MerchantKey struct {
+	ID           uuid.UUID
+	Keymatch     string
+	Uploadsource UploadSource
+	Merchantid   uuid.UUID
+}
+
 type Transaction struct {
 	ID              uuid.UUID
 	Sourceid        string
@@ -226,6 +239,7 @@ type Transaction struct {
 	Type            TransactionType
 	Checknumber     sql.NullString
 	Updated         time.Time
+	Merchantid      uuid.UUID
 	Ownerid         uuid.UUID
 	Accountid       uuid.UUID
 }

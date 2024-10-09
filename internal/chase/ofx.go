@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/aclindsa/ofxgo"
@@ -92,7 +93,7 @@ func parseBankAccount(response *ofxgo.Response) (*ChaseOFXResult, error) {
 				Payee:       name,
 				PayeeFull:   tx.ExtdName.String(),
 				CheckNumber: tx.CheckNum.String(),
-				Description: tx.Memo.String(),
+				Description: getDescription(name, tx.Memo.String()),
 			}
 
 			transactions = append(transactions, transaction)
@@ -140,7 +141,7 @@ func parseCreditCard(response *ofxgo.Response) (*ChaseOFXResult, error) {
 				Payee:       name,
 				PayeeFull:   tx.ExtdName.String(),
 				CheckNumber: tx.CheckNum.String(),
-				Description: tx.Memo.String(),
+				Description: getDescription(name, tx.Memo.String()),
 			}
 
 			transactions = append(transactions, transaction)
@@ -155,4 +156,14 @@ func parseCreditCard(response *ofxgo.Response) (*ChaseOFXResult, error) {
 	}
 
 	return nil, fmt.Errorf("ofx: failed to parse credit card data")
+}
+
+func getDescription(name string, memo string) string {
+	if name == "" {
+		return memo
+	} else if memo == "" {
+		return name
+	}
+
+	return strings.Trim(name, " ") + " " + strings.Trim(memo, " ")
 }

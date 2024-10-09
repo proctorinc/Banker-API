@@ -13,6 +13,57 @@ import (
 	"github.com/google/uuid"
 )
 
+const createMerchant = `-- name: CreateMerchant :one
+INSERT INTO merchants (
+    name,
+    ownerId
+)
+VALUES ($1, $2)
+RETURNING id, name, ownerid
+`
+
+type CreateMerchantParams struct {
+	Name    string
+	Ownerid uuid.UUID
+}
+
+func (q *Queries) CreateMerchant(ctx context.Context, arg CreateMerchantParams) (Merchant, error) {
+	row := q.db.QueryRowContext(ctx, createMerchant, arg.Name, arg.Ownerid)
+	var i Merchant
+	err := row.Scan(&i.ID, &i.Name, &i.Ownerid)
+	return i, err
+}
+
+const createMerchantKey = `-- name: CreateMerchantKey :one
+
+INSERT INTO merchant_keys (
+    keymatch,
+    uploadSource,
+    merchantId
+)
+VALUES ($1, $2, $3)
+RETURNING id, keymatch, uploadsource, merchantid
+`
+
+type CreateMerchantKeyParams struct {
+	Keymatch     string
+	Uploadsource UploadSource
+	Merchantid   uuid.UUID
+}
+
+// MERCHANT KEYS
+func (q *Queries) CreateMerchantKey(ctx context.Context, arg CreateMerchantKeyParams) (MerchantKey, error) {
+	row := q.db.QueryRowContext(ctx, createMerchantKey, arg.Keymatch, arg.Uploadsource, arg.Merchantid)
+	var i MerchantKey
+	err := row.Scan(
+		&i.ID,
+		&i.Keymatch,
+		&i.Uploadsource,
+		&i.Merchantid,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (username, email, passwordHash)
 VALUES ($1, $2, $3)
@@ -41,7 +92,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 const deleteTransaction = `-- name: DeleteTransaction :one
 DELETE FROM transactions
 WHERE id = $1
-RETURNING id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, ownerid, accountid
+RETURNING id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid
 `
 
 func (q *Queries) DeleteTransaction(ctx context.Context, id uuid.UUID) (Transaction, error) {
@@ -61,6 +112,7 @@ func (q *Queries) DeleteTransaction(ctx context.Context, id uuid.UUID) (Transact
 		&i.Type,
 		&i.Checknumber,
 		&i.Updated,
+		&i.Merchantid,
 		&i.Ownerid,
 		&i.Accountid,
 	)
@@ -115,35 +167,106 @@ func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (Account
 	return i, err
 }
 
-const getTotalIncome = `-- name: GetTotalIncome :one
-SELECT SUM(amount) FROM transactions
-WHERE ownerId = $1 AND amount < 0
+const getAccountIncome = `-- name: GetAccountIncome :one
+SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions
+WHERE ownerId = $1 AND accountId = $2 AND amount > 0
 `
 
-func (q *Queries) GetTotalIncome(ctx context.Context, ownerid uuid.UUID) (int64, error) {
+type GetAccountIncomeParams struct {
+	Ownerid   uuid.UUID
+	Accountid uuid.UUID
+}
+
+func (q *Queries) GetAccountIncome(ctx context.Context, arg GetAccountIncomeParams) (interface{}, error) {
+	row := q.db.QueryRowContext(ctx, getAccountIncome, arg.Ownerid, arg.Accountid)
+	var sum interface{}
+	err := row.Scan(&sum)
+	return sum, err
+}
+
+const getAccountSpending = `-- name: GetAccountSpending :one
+SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions
+WHERE ownerId = $1 AND accountId = $2 AND amount < 0
+`
+
+type GetAccountSpendingParams struct {
+	Ownerid   uuid.UUID
+	Accountid uuid.UUID
+}
+
+func (q *Queries) GetAccountSpending(ctx context.Context, arg GetAccountSpendingParams) (interface{}, error) {
+	row := q.db.QueryRowContext(ctx, getAccountSpending, arg.Ownerid, arg.Accountid)
+	var sum interface{}
+	err := row.Scan(&sum)
+	return sum, err
+}
+
+const getMerchant = `-- name: GetMerchant :one
+
+SELECT id, name, ownerid FROM merchants
+WHERE id = $1 and ownerId = $2
+LIMIT 1
+`
+
+type GetMerchantParams struct {
+	ID      uuid.UUID
+	Ownerid uuid.UUID
+}
+
+// MERCHANTS
+func (q *Queries) GetMerchant(ctx context.Context, arg GetMerchantParams) (Merchant, error) {
+	row := q.db.QueryRowContext(ctx, getMerchant, arg.ID, arg.Ownerid)
+	var i Merchant
+	err := row.Scan(&i.ID, &i.Name, &i.Ownerid)
+	return i, err
+}
+
+const getMerchantByKey = `-- name: GetMerchantByKey :one
+SELECT m.id, m.name, m.ownerId FROM merchants AS m JOIN merchant_keys AS k ON m.id = k.merchantId
+WHERE uploadSource = $1 AND keymatch LIKE CONCAT('%', $2,'%')
+`
+
+type GetMerchantByKeyParams struct {
+	Uploadsource UploadSource
+	Concat       interface{}
+}
+
+func (q *Queries) GetMerchantByKey(ctx context.Context, arg GetMerchantByKeyParams) (Merchant, error) {
+	row := q.db.QueryRowContext(ctx, getMerchantByKey, arg.Uploadsource, arg.Concat)
+	var i Merchant
+	err := row.Scan(&i.ID, &i.Name, &i.Ownerid)
+	return i, err
+}
+
+const getTotalIncome = `-- name: GetTotalIncome :one
+SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions
+WHERE ownerId = $1 AND amount > 0
+`
+
+func (q *Queries) GetTotalIncome(ctx context.Context, ownerid uuid.UUID) (interface{}, error) {
 	row := q.db.QueryRowContext(ctx, getTotalIncome, ownerid)
-	var sum int64
+	var sum interface{}
 	err := row.Scan(&sum)
 	return sum, err
 }
 
 const getTotalSpending = `-- name: GetTotalSpending :one
 
-SELECT SUM(amount) FROM transactions
-WHERE ownerId = $1 AND amount > 0
+SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions
+WHERE ownerId = $1 AND amount < 0
 `
 
 // STATS
-func (q *Queries) GetTotalSpending(ctx context.Context, ownerid uuid.UUID) (int64, error) {
+func (q *Queries) GetTotalSpending(ctx context.Context, ownerid uuid.UUID) (interface{}, error) {
 	row := q.db.QueryRowContext(ctx, getTotalSpending, ownerid)
-	var sum int64
+	var sum interface{}
 	err := row.Scan(&sum)
 	return sum, err
 }
 
 const getTransaction = `-- name: GetTransaction :one
 
-SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, ownerid, accountid FROM transactions
+SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid FROM transactions
 WHERE id = $1 and ownerId = $2
 LIMIT 1
 `
@@ -171,6 +294,7 @@ func (q *Queries) GetTransaction(ctx context.Context, arg GetTransactionParams) 
 		&i.Type,
 		&i.Checknumber,
 		&i.Updated,
+		&i.Merchantid,
 		&i.Ownerid,
 		&i.Accountid,
 	)
@@ -252,8 +376,36 @@ func (q *Queries) ListAccounts(ctx context.Context, ownerid uuid.UUID) ([]Accoun
 	return items, nil
 }
 
+const listMerchants = `-- name: ListMerchants :many
+SELECT id, name, ownerid FROM merchants
+WHERE ownerId = $1
+`
+
+func (q *Queries) ListMerchants(ctx context.Context, ownerid uuid.UUID) ([]Merchant, error) {
+	rows, err := q.db.QueryContext(ctx, listMerchants, ownerid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Merchant
+	for rows.Next() {
+		var i Merchant
+		if err := rows.Scan(&i.ID, &i.Name, &i.Ownerid); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTransactions = `-- name: ListTransactions :many
-SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, ownerid, accountid FROM transactions
+SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid FROM transactions
 WHERE ownerId = $1
 `
 
@@ -280,6 +432,7 @@ func (q *Queries) ListTransactions(ctx context.Context, ownerid uuid.UUID) ([]Tr
 			&i.Type,
 			&i.Checknumber,
 			&i.Updated,
+			&i.Merchantid,
 			&i.Ownerid,
 			&i.Accountid,
 		); err != nil {
@@ -333,7 +486,7 @@ const updateTransaction = `-- name: UpdateTransaction :one
 UPDATE transactions
 SET amount = $3
 WHERE id = $1 AND ownerId = $2
-RETURNING id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, ownerid, accountid
+RETURNING id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid
 `
 
 type UpdateTransactionParams struct {
@@ -359,6 +512,7 @@ func (q *Queries) UpdateTransaction(ctx context.Context, arg UpdateTransactionPa
 		&i.Type,
 		&i.Checknumber,
 		&i.Updated,
+		&i.Merchantid,
 		&i.Ownerid,
 		&i.Accountid,
 	)
@@ -421,7 +575,7 @@ type UpsertAccountParams struct {
 	Ownerid       uuid.UUID
 }
 
-// WHERE ownerId = $7
+// WHERE ownerId = $7 -- HOW DO WE INCLUDE OWNER ID FOR UPDATE
 func (q *Queries) UpsertAccount(ctx context.Context, arg UpsertAccountParams) (Account, error) {
 	row := q.db.QueryRowContext(ctx, upsertAccount,
 		arg.Sourceid,
@@ -461,9 +615,10 @@ INSERT INTO transactions (
     checkNumber,
     updated,
     ownerId,
-    accountId
+    accountId,
+    merchantId
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 ON CONFLICT (sourceId) DO UPDATE
 SET
     amount = $3,
@@ -476,7 +631,7 @@ SET
     type = $10,
     checkNumber = $11,
     updated = $12
-RETURNING id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, ownerid, accountid
+RETURNING id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid
 `
 
 type UpsertTransactionParams struct {
@@ -494,9 +649,10 @@ type UpsertTransactionParams struct {
 	Updated         time.Time
 	Ownerid         uuid.UUID
 	Accountid       uuid.UUID
+	Merchantid      uuid.UUID
 }
 
-// WHERE ownerId = $13
+// WHERE ownerId = $13 -- HOW DO WE INCLUDE OWNER ID FOR UPDATE
 func (q *Queries) UpsertTransaction(ctx context.Context, arg UpsertTransactionParams) (Transaction, error) {
 	row := q.db.QueryRowContext(ctx, upsertTransaction,
 		arg.Sourceid,
@@ -513,6 +669,7 @@ func (q *Queries) UpsertTransaction(ctx context.Context, arg UpsertTransactionPa
 		arg.Updated,
 		arg.Ownerid,
 		arg.Accountid,
+		arg.Merchantid,
 	)
 	var i Transaction
 	err := row.Scan(
@@ -529,6 +686,7 @@ func (q *Queries) UpsertTransaction(ctx context.Context, arg UpsertTransactionPa
 		&i.Type,
 		&i.Checknumber,
 		&i.Updated,
+		&i.Merchantid,
 		&i.Ownerid,
 		&i.Accountid,
 	)

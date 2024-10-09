@@ -14,9 +14,10 @@ type Resolver struct {
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+type userResolver struct{ *Resolver }
 type accountResolver struct{ *Resolver }
 type transactionResolver struct{ *Resolver }
-type userResolver struct{ *Resolver }
+type merchantResolver struct{ *Resolver }
 
 func (r *Resolver) Mutation() gen.MutationResolver {
 	return &mutationResolver{r}
@@ -37,3 +38,7 @@ func (r *Resolver) Account() gen.AccountResolver {
 func (r *Resolver) Transaction() gen.TransactionResolver {
 	return &transactionResolver{r}
 }
+
+// func (r *Resolver) Merchant() gen.MerchantResolver {
+// 	return &merchantResolver{r}
+// }

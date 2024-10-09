@@ -2,12 +2,25 @@
 
 package gen
 
+import (
+	"github.com/proctorinc/banker/internal/db"
+)
+
+type IncomeStats struct {
+	Total        float64          `json:"total"`
+	Transactions []db.Transaction `json:"transactions"`
+}
+
 type LoginInput struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
 type Mutation struct {
+}
+
+type NetStats struct {
+	Total float64 `json:"total"`
 }
 
 type Query struct {
@@ -19,8 +32,18 @@ type RegisterInput struct {
 	Password string `json:"password"`
 }
 
-type UploadResponse struct {
-	Success             bool `json:"success"`
-	AccountsUpdated     int  `json:"accountsUpdated"`
-	TransactionsUpdated int  `json:"transactionsUpdated"`
+type SpendingStats struct {
+	Total        float64          `json:"total"`
+	Transactions []db.Transaction `json:"transactions"`
+}
+
+type StatsInput struct {
+	StartDate string `json:"startDate"`
+	EndDate   string `json:"endDate"`
+}
+
+type StatsResponse struct {
+	Spending *SpendingStats `json:"spending,omitempty"`
+	Income   *IncomeStats   `json:"income,omitempty"`
+	Net      *NetStats      `json:"net,omitempty"`
 }

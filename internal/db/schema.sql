@@ -3,6 +3,8 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS accounts CASCADE;
 DROP TABLE IF EXISTS transactions CASCADE;
+DROP TABLE IF EXISTS merchants CASCADE;
+DROP TABLE IF EXISTS merchant_keys CASCADE;
 
 DROP TYPE IF EXISTS ROLE;
 DROP TYPE IF EXISTS ACCOUNT_TYPE;
@@ -68,6 +70,19 @@ CREATE TABLE accounts (
     ownerId UUID REFERENCES users (id) NOT NULL
 );
 
+CREATE TABLE merchants (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    ownerId UUID REFERENCES users (id) NOT NULL
+);
+
+CREATE TABLE merchant_keys (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    keymatch VARCHAR(255) NOT NULL UNIQUE,
+    uploadSource UPLOAD_SOURCE NOT NULL,
+    merchantId UUID REFERENCES merchants (id) NOT NULL
+);
+
 CREATE TABLE transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     sourceId VARCHAR(255) NOT NULL UNIQUE,
@@ -82,6 +97,7 @@ CREATE TABLE transactions (
     type TRANSACTION_TYPE NOT NULL,
     checkNumber VARCHAR(255),
     updated DATE NOT NULL DEFAULT NOW(),
+    merchantId UUID REFERENCES merchants (id) NOT NULL,
     ownerId UUID REFERENCES users (id) NOT NULL,
     accountId UUID REFERENCES accounts (id) NOT NULL
 );

@@ -13,6 +13,7 @@ import (
 	"github.com/proctorinc/banker/internal/auth"
 	"github.com/proctorinc/banker/internal/chase"
 	"github.com/proctorinc/banker/internal/db"
+	gen "github.com/proctorinc/banker/internal/graphql/generated"
 	"github.com/proctorinc/banker/internal/graphql/utils"
 )
 
@@ -44,6 +45,49 @@ func (r *accountResolver) RoutingNumber(ctx context.Context, account *db.Account
 	}
 
 	return nil, nil
+}
+
+func (r *accountResolver) Stats(ctx context.Context, account *db.Account, input *gen.StatsInput) (*gen.StatsResponse, error) {
+	user := auth.GetCurrentUser(ctx)
+	incomeTotal, err := r.Repository.GetAccountIncome(ctx, db.GetAccountIncomeParams{
+		Ownerid:   user.ID,
+		Accountid: account.ID,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	income := gen.IncomeStats{
+		Total:        float64(incomeTotal.(int64)) / 100,
+		Transactions: []db.Transaction{},
+	}
+
+	spendingTotal, err := r.Repository.GetAccountSpending(ctx, db.GetAccountSpendingParams{
+		Ownerid:   user.ID,
+		Accountid: account.ID,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	spending := gen.SpendingStats{
+		Total:        float64(spendingTotal.(int64)) / 100,
+		Transactions: []db.Transaction{},
+	}
+
+	net := gen.NetStats{
+		Total: float64(incomeTotal.(int64)+spendingTotal.(int64)) / 100,
+	}
+
+	response := &gen.StatsResponse{
+		Spending: &spending,
+		Income:   &income,
+		Net:      &net,
+	}
+
+	return response, nil
 }
 
 // Queries
@@ -107,7 +151,32 @@ func (r *mutationResolver) ChaseOFXUpload(ctx context.Context, reader graphql.Up
 	accountsUploaded++
 
 	for _, tx := range ofxResult.Transactions {
-		_, err := r.Repository.UpsertTransaction(ctx, db.UpsertTransactionParams{
+		merchant, err := r.Repository.GetMerchantByKey(ctx, db.GetMerchantByKeyParams{
+			Concat:       tx.Payee,
+			Uploadsource: db.UploadSourceCHASEOFXUPLOAD,
+		})
+
+		if err != nil {
+			merchant, err = r.Repository.CreateMerchant(ctx, db.CreateMerchantParams{
+				Name:    tx.Payee,
+				Ownerid: user.ID,
+			})
+
+			if err != nil {
+				return false, err
+			}
+
+			_, err = r.Repository.CreateMerchantKey(ctx, db.CreateMerchantKeyParams{
+				Keymatch:     tx.Payee,
+				Uploadsource: db.UploadSourceCHASEOFXUPLOAD,
+				Merchantid:   merchant.ID,
+			})
+
+			if err != nil {
+				return false, err
+			}
+		}
+		_, err = r.Repository.UpsertTransaction(ctx, db.UpsertTransactionParams{
 			Ownerid:         user.ID,
 			Amount:          int32(tx.Amount * 100),
 			Payeeid:         sql.NullString{String: tx.PayeeId, Valid: len(tx.PayeeId) > 0},
@@ -122,15 +191,16 @@ func (r *mutationResolver) ChaseOFXUpload(ctx context.Context, reader graphql.Up
 			Updated:         time.Now(),
 			Checknumber:     sql.NullString{String: tx.CheckNumber, Valid: len(tx.CheckNumber) > 0},
 			Accountid:       account.ID,
+			Merchantid:      merchant.ID,
 		})
 
 		// Increment successful transaction upload
-		if err == nil {
-			transactionsUploaded++
-		} else {
+		if err != nil {
 			transactionsFailed++
 			log.Println(tx)
 			log.Println(err)
+		} else {
+			transactionsUploaded++
 		}
 	}
 

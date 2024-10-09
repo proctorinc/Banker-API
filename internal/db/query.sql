@@ -84,9 +84,10 @@ INSERT INTO transactions (
     checkNumber,
     updated,
     ownerId,
-    accountId
+    accountId,
+    merchantId
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 ON CONFLICT (sourceId) DO UPDATE
 SET
     amount = $3,
@@ -113,12 +114,54 @@ DELETE FROM transactions
 WHERE id = $1
 RETURNING *;
 
+-- MERCHANTS
+
+-- name: GetMerchant :one
+SELECT * FROM merchants
+WHERE id = $1 and ownerId = $2
+LIMIT 1;
+
+-- name: GetMerchantByKey :one
+SELECT m.id, m.name, m.ownerId FROM merchants AS m JOIN merchant_keys AS k ON m.id = k.merchantId
+WHERE uploadSource = $1 AND keymatch LIKE CONCAT('%', $2,'%');
+
+-- name: ListMerchants :many
+SELECT * FROM merchants
+WHERE ownerId = $1;
+
+-- name: CreateMerchant :one
+INSERT INTO merchants (
+    name,
+    ownerId
+)
+VALUES ($1, $2)
+RETURNING *;
+
+-- MERCHANT KEYS
+
+-- name: CreateMerchantKey :one
+INSERT INTO merchant_keys (
+    keymatch,
+    uploadSource,
+    merchantId
+)
+VALUES ($1, $2, $3)
+RETURNING *;
+
 -- STATS
 
 -- name: GetTotalSpending :one
-SELECT SUM(amount) FROM transactions -- HOW DO WE DEFAULT SUM TO 0?
-WHERE ownerId = $1 AND amount > 0;
+SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions
+WHERE ownerId = $1 AND amount < 0;
 
 -- name: GetTotalIncome :one
-SELECT SUM(amount) FROM transactions -- HOW DO WE DEFAULT SUM TO 0?
-WHERE ownerId = $1 AND amount < 0;
+SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions
+WHERE ownerId = $1 AND amount > 0;
+
+-- name: GetAccountSpending :one
+SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions
+WHERE ownerId = $1 AND accountId = $2 AND amount < 0;
+
+-- name: GetAccountIncome :one
+SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions
+WHERE ownerId = $1 AND accountId = $2 AND amount > 0;

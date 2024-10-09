@@ -15,11 +15,7 @@ func (r *userResolver) ID(ctx context.Context, user *db.User) (string, error) {
 }
 
 func (r *userResolver) Role(ctx context.Context, user *db.User) (string, error) {
-	if user.Role == db.RoleADMIN {
-		return "Admin", nil
-	}
-
-	return "User", nil
+	return string(user.Role), nil
 }
 
 func (r *userResolver) Accounts(ctx context.Context, user *db.User) ([]db.Account, error) {
@@ -34,6 +30,16 @@ func (r *userResolver) Accounts(ctx context.Context, user *db.User) ([]db.Accoun
 
 func (r *userResolver) Transactions(ctx context.Context, user *db.User) ([]db.Transaction, error) {
 	transactions, err := r.Repository.ListTransactions(ctx, user.ID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return transactions, nil
+}
+
+func (r *userResolver) Merchants(ctx context.Context, user *db.User) ([]db.Merchant, error) {
+	transactions, err := r.Repository.ListMerchants(ctx, user.ID)
 
 	if err != nil {
 		return nil, err

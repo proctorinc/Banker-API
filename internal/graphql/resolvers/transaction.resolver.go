@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/proctorinc/banker/internal/auth"
 	"github.com/proctorinc/banker/internal/db"
+	gen "github.com/proctorinc/banker/internal/graphql/generated"
 )
 
 type UploadResponse struct {
@@ -89,6 +90,20 @@ func (r *transactionResolver) Updated(ctx context.Context, transaction *db.Trans
 	return transaction.Updated.Format(time.RFC3339), nil
 }
 
+func (r *transactionResolver) Merchant(ctx context.Context, transaction *db.Transaction) (*db.Merchant, error) {
+	user := auth.GetCurrentUser(ctx)
+	merchant, err := r.Repository.GetMerchant(ctx, db.GetMerchantParams{
+		ID:      transaction.Merchantid,
+		Ownerid: user.ID,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &merchant, nil
+}
+
 // Queries
 
 func (r *queryResolver) Transaction(ctx context.Context, transactionId uuid.UUID) (*db.Transaction, error) {
@@ -120,7 +135,7 @@ func (r *queryResolver) SpendingTotal(ctx context.Context) (float64, error) {
 		return 0, err
 	}
 
-	return float64(spending) / 100, nil
+	return float64(spending.(int64)) / 100, nil
 }
 
 func (r *queryResolver) IncomeTotal(ctx context.Context) (float64, error) {
@@ -132,7 +147,44 @@ func (r *queryResolver) IncomeTotal(ctx context.Context) (float64, error) {
 		return 0, err
 	}
 
-	return float64(income) / 100, nil
+	return float64(income.(int64)) / 100, nil
+}
+
+func (r *queryResolver) Stats(ctx context.Context, input *gen.StatsInput) (*gen.StatsResponse, error) {
+	user := auth.GetCurrentUser(ctx)
+	incomeTotal, err := r.Repository.GetTotalIncome(ctx, user.ID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	income := gen.IncomeStats{
+		Total:        float64(incomeTotal.(int64)) / 100,
+		Transactions: []db.Transaction{},
+	}
+
+	spendingTotal, err := r.Repository.GetTotalSpending(ctx, user.ID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	spending := gen.SpendingStats{
+		Total:        float64(spendingTotal.(int64)) / 100,
+		Transactions: []db.Transaction{},
+	}
+
+	net := gen.NetStats{
+		Total: float64(incomeTotal.(int64)+spendingTotal.(int64)) / 100,
+	}
+
+	response := &gen.StatsResponse{
+		Spending: &spending,
+		Income:   &income,
+		Net:      &net,
+	}
+
+	return response, nil
 }
 
 // Mutations

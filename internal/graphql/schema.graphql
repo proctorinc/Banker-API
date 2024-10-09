@@ -11,6 +11,7 @@ type User {
     email: String!
     transactions: [Transaction!]!
     accounts: [Account!]!
+    merchants: [Merchant!]!
 }
 
 type Account {
@@ -20,6 +21,7 @@ type Account {
     type: String!
     name: String!
     routingNumber: String
+    stats(input: StatsInput): StatsResponse! @isAuthenticated
 }
 
 type Transaction {
@@ -36,19 +38,26 @@ type Transaction {
     type: String!
     checkNumber: String
     updated: Date!
+    merchant: Merchant!
+}
+
+type Merchant {
+    id: ID!
+    name: String!
+    ownerId: ID!
 }
 
 type Query {
-    me: User @isAuthenticated
-    transaction(id: ID!): Transaction @isAuthenticated
-    transactions: [Transaction!]! @isAuthenticated
-    account(id: ID!): Account @isAuthenticated
-    accounts: [Account!]! @isAuthenticated
     user(id: ID!): User @isAdmin
     users: [User!]! @isAdmin
-    spendingTotal: Float! @isAuthenticated
-    incomeTotal: Float! @isAuthenticated
-    # stats(StatsInput): StatsResponse! @isAuthenticated
+    me: User @isAuthenticated
+    account(id: ID!): Account @isAuthenticated
+    accounts: [Account!]! @isAuthenticated
+    transaction(id: ID!): Transaction @isAuthenticated
+    transactions: [Transaction!]! @isAuthenticated
+    merchant(id: ID!): Merchant @isAuthenticated
+    merchants: [Merchant!]! @isAuthenticated
+    stats(input: StatsInput): StatsResponse! @isAuthenticated
 }
 
 type Mutation {
@@ -66,30 +75,30 @@ type Mutation {
 #     transactionsUpdated: Int!
 # }
 
-# type StatsResponse {
-#     spending: SpendingStats
-#     income: IncomeStats
-#     net: NetStats
-# }
+type StatsResponse {
+    spending: SpendingStats
+    income: IncomeStats
+    net: NetStats
+}
 
-# type SpendingStats {
-#     total: Float!
-#     transactions: [Transation!]!
-# }
+type SpendingStats {
+    total: Float!
+    transactions: [Transaction!]!
+}
 
-# type IncomeStats {
-#     total: Float!
-#     transactions: [Transaction!]!
-# }
+type IncomeStats {
+    total: Float!
+    transactions: [Transaction!]!
+}
 
-# type NetStats {
-#     total: Float!
-# }
+type NetStats {
+    total: Float!
+}
 
-# input StatsInput {
-#     startDate: Date!
-#     endDate: Date!
-# }
+input StatsInput {
+    startDate: Date!
+    endDate: Date!
+}
 
 input LoginInput {
     email: String!
