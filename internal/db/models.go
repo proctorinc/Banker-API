@@ -213,9 +213,10 @@ type Account struct {
 }
 
 type Merchant struct {
-	ID      uuid.UUID
-	Name    string
-	Ownerid uuid.UUID
+	ID       uuid.UUID
+	Name     string
+	Sourceid sql.NullString
+	Ownerid  uuid.UUID
 }
 
 type MerchantKey struct {
@@ -223,6 +224,7 @@ type MerchantKey struct {
 	Keymatch     string
 	Uploadsource UploadSource
 	Merchantid   uuid.UUID
+	Ownerid      uuid.UUID
 }
 
 type Transaction struct {

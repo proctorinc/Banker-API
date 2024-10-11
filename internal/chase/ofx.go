@@ -9,6 +9,8 @@ import (
 
 	"github.com/aclindsa/ofxgo"
 	"github.com/proctorinc/banker/internal/db"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 type ChaseOFXAccount struct {
@@ -65,14 +67,19 @@ func parseBankAccount(response *ofxgo.Response) (*ChaseOFXResult, error) {
 	if stmt, ok := response.Bank[0].(*ofxgo.StatementResponse); ok {
 		current, _ := stmt.BalAmt.Float32()
 		available, _ := stmt.AvailBalAmt.Float32()
+		accountId := stmt.BankAcctFrom.AcctID.String()
+		accountType := db.AccountType(stmt.BankAcctFrom.AcctType.String())
+		caser := cases.Title(language.AmericanEnglish)
+		accountTypeFormatted := caser.String(strings.ToLower(string(accountType)))
 
 		account := ChaseOFXAccount{
 			BankId:           stmt.BankAcctFrom.BankID.String(),
-			AccountId:        stmt.BankAcctFrom.AcctID.String(),
+			AccountId:        accountId,
 			IsoCurrencyCode:  stmt.CurDef.String(),
-			Type:             db.AccountType(stmt.BankAcctFrom.AcctType.String()),
+			Type:             accountType,
 			CurrentBalance:   current,
 			AvailableBalance: available,
+			Name:             fmt.Sprintf("%s Account %s", accountTypeFormatted, accountId[len(accountId)-4:]),
 		}
 		var transactions []ChaseOFXTransaction
 
@@ -114,13 +121,18 @@ func parseCreditCard(response *ofxgo.Response) (*ChaseOFXResult, error) {
 	if stmt, ok := response.CreditCard[0].(*ofxgo.CCStatementResponse); ok {
 		current, _ := stmt.BalAmt.Float32()
 		available, _ := stmt.AvailBalAmt.Float32()
+		accountId := stmt.CCAcctFrom.AcctID.String()
+		accountType := db.AccountTypeCREDIT
+		caser := cases.Title(language.AmericanEnglish)
+		accountTypeFormatted := caser.String(strings.ToLower(string(accountType)))
 
 		account := ChaseOFXAccount{
-			AccountId:        stmt.CCAcctFrom.AcctID.String(),
+			AccountId:        accountId,
 			IsoCurrencyCode:  stmt.CurDef.String(),
-			Type:             db.AccountTypeCREDIT,
+			Type:             accountType,
 			CurrentBalance:   current,
 			AvailableBalance: available,
+			Name:             fmt.Sprintf("%s Card %s", accountTypeFormatted, accountId[len(accountId)-4:]),
 		}
 		var transactions []ChaseOFXTransaction
 

@@ -16,21 +16,28 @@ import (
 const createMerchant = `-- name: CreateMerchant :one
 INSERT INTO merchants (
     name,
+    sourceId,
     ownerId
 )
-VALUES ($1, $2)
-RETURNING id, name, ownerid
+VALUES ($1, $2, $3)
+RETURNING id, name, sourceid, ownerid
 `
 
 type CreateMerchantParams struct {
-	Name    string
-	Ownerid uuid.UUID
+	Name     string
+	Sourceid sql.NullString
+	Ownerid  uuid.UUID
 }
 
 func (q *Queries) CreateMerchant(ctx context.Context, arg CreateMerchantParams) (Merchant, error) {
-	row := q.db.QueryRowContext(ctx, createMerchant, arg.Name, arg.Ownerid)
+	row := q.db.QueryRowContext(ctx, createMerchant, arg.Name, arg.Sourceid, arg.Ownerid)
 	var i Merchant
-	err := row.Scan(&i.ID, &i.Name, &i.Ownerid)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Sourceid,
+		&i.Ownerid,
+	)
 	return i, err
 }
 
@@ -39,27 +46,35 @@ const createMerchantKey = `-- name: CreateMerchantKey :one
 INSERT INTO merchant_keys (
     keymatch,
     uploadSource,
-    merchantId
+    merchantId,
+    ownerId
 )
-VALUES ($1, $2, $3)
-RETURNING id, keymatch, uploadsource, merchantid
+VALUES ($1, $2, $3, $4)
+RETURNING id, keymatch, uploadsource, merchantid, ownerid
 `
 
 type CreateMerchantKeyParams struct {
 	Keymatch     string
 	Uploadsource UploadSource
 	Merchantid   uuid.UUID
+	Ownerid      uuid.UUID
 }
 
 // MERCHANT KEYS
 func (q *Queries) CreateMerchantKey(ctx context.Context, arg CreateMerchantKeyParams) (MerchantKey, error) {
-	row := q.db.QueryRowContext(ctx, createMerchantKey, arg.Keymatch, arg.Uploadsource, arg.Merchantid)
+	row := q.db.QueryRowContext(ctx, createMerchantKey,
+		arg.Keymatch,
+		arg.Uploadsource,
+		arg.Merchantid,
+		arg.Ownerid,
+	)
 	var i MerchantKey
 	err := row.Scan(
 		&i.ID,
 		&i.Keymatch,
 		&i.Uploadsource,
 		&i.Merchantid,
+		&i.Ownerid,
 	)
 	return i, err
 }
@@ -203,7 +218,7 @@ func (q *Queries) GetAccountSpending(ctx context.Context, arg GetAccountSpending
 
 const getMerchant = `-- name: GetMerchant :one
 
-SELECT id, name, ownerid FROM merchants
+SELECT id, name, sourceid, ownerid FROM merchants
 WHERE id = $1 and ownerId = $2
 LIMIT 1
 `
@@ -217,24 +232,68 @@ type GetMerchantParams struct {
 func (q *Queries) GetMerchant(ctx context.Context, arg GetMerchantParams) (Merchant, error) {
 	row := q.db.QueryRowContext(ctx, getMerchant, arg.ID, arg.Ownerid)
 	var i Merchant
-	err := row.Scan(&i.ID, &i.Name, &i.Ownerid)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Sourceid,
+		&i.Ownerid,
+	)
 	return i, err
 }
 
 const getMerchantByKey = `-- name: GetMerchantByKey :one
-SELECT m.id, m.name, m.ownerId FROM merchants AS m JOIN merchant_keys AS k ON m.id = k.merchantId
-WHERE uploadSource = $1 AND starts_with(keymatch, $2)
+SELECT m.id, m.name, m.sourceId, m.ownerId FROM merchants AS m JOIN merchant_keys AS k ON m.id = k.merchantId
+WHERE uploadSource = $1 AND keymatch LIKE $2
 `
 
 type GetMerchantByKeyParams struct {
 	Uploadsource UploadSource
-	StartsWith   string
+	Keymatch     string
 }
 
 func (q *Queries) GetMerchantByKey(ctx context.Context, arg GetMerchantByKeyParams) (Merchant, error) {
-	row := q.db.QueryRowContext(ctx, getMerchantByKey, arg.Uploadsource, arg.StartsWith)
+	row := q.db.QueryRowContext(ctx, getMerchantByKey, arg.Uploadsource, arg.Keymatch)
 	var i Merchant
-	err := row.Scan(&i.ID, &i.Name, &i.Ownerid)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Sourceid,
+		&i.Ownerid,
+	)
+	return i, err
+}
+
+const getMerchantByName = `-- name: GetMerchantByName :one
+SELECT id, name, sourceid, ownerid FROM merchants
+WHERE name = $1
+`
+
+func (q *Queries) GetMerchantByName(ctx context.Context, name string) (Merchant, error) {
+	row := q.db.QueryRowContext(ctx, getMerchantByName, name)
+	var i Merchant
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Sourceid,
+		&i.Ownerid,
+	)
+	return i, err
+}
+
+const getMerchantBySourceId = `-- name: GetMerchantBySourceId :one
+SELECT id, name, sourceid, ownerid FROM merchants
+WHERE sourceId = $1
+`
+
+func (q *Queries) GetMerchantBySourceId(ctx context.Context, sourceid sql.NullString) (Merchant, error) {
+	row := q.db.QueryRowContext(ctx, getMerchantBySourceId, sourceid)
+	var i Merchant
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Sourceid,
+		&i.Ownerid,
+	)
 	return i, err
 }
 
@@ -340,8 +399,9 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 }
 
 const listAccounts = `-- name: ListAccounts :many
-SELECT id, sourceid, uploadsource, type, name, routingnumber, updated, ownerid FROM accounts
+SELECT id, sourceid, uploadsource, type, name, routingnumber, updated, ownerid FROM accounts AS a
 WHERE ownerId = $1
+ORDER BY a.name
 `
 
 func (q *Queries) ListAccounts(ctx context.Context, ownerid uuid.UUID) ([]Account, error) {
@@ -377,8 +437,9 @@ func (q *Queries) ListAccounts(ctx context.Context, ownerid uuid.UUID) ([]Accoun
 }
 
 const listMerchants = `-- name: ListMerchants :many
-SELECT id, name, ownerid FROM merchants
+SELECT id, name, sourceid, ownerid FROM merchants AS m
 WHERE ownerId = $1
+ORDER BY m.name
 `
 
 func (q *Queries) ListMerchants(ctx context.Context, ownerid uuid.UUID) ([]Merchant, error) {
@@ -390,7 +451,12 @@ func (q *Queries) ListMerchants(ctx context.Context, ownerid uuid.UUID) ([]Merch
 	var items []Merchant
 	for rows.Next() {
 		var i Merchant
-		if err := rows.Scan(&i.ID, &i.Name, &i.Ownerid); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Sourceid,
+			&i.Ownerid,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -405,8 +471,9 @@ func (q *Queries) ListMerchants(ctx context.Context, ownerid uuid.UUID) ([]Merch
 }
 
 const listTransactions = `-- name: ListTransactions :many
-SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid FROM transactions
+SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid FROM transactions AS t
 WHERE ownerId = $1
+ORDER BY t.date
 `
 
 func (q *Queries) ListTransactions(ctx context.Context, ownerid uuid.UUID) ([]Transaction, error) {

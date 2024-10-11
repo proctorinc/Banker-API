@@ -35,8 +35,9 @@ WHERE id = $1 and ownerId = $2
 LIMIT 1;
 
 -- name: ListAccounts :many
-SELECT * FROM accounts
-WHERE ownerId = $1;
+SELECT * FROM accounts AS a
+WHERE ownerId = $1
+ORDER BY a.name;
 
 -- name: UpsertAccount :one
 INSERT INTO accounts (
@@ -66,8 +67,9 @@ WHERE id = $1 and ownerId = $2
 LIMIT 1;
 
 -- name: ListTransactions :many
-SELECT * FROM transactions
-WHERE ownerId = $1;
+SELECT * FROM transactions AS t
+WHERE ownerId = $1
+ORDER BY t.date;
 
 -- name: UpsertTransaction :one
 INSERT INTO transactions (
@@ -122,19 +124,29 @@ WHERE id = $1 and ownerId = $2
 LIMIT 1;
 
 -- name: GetMerchantByKey :one
-SELECT m.id, m.name, m.ownerId FROM merchants AS m JOIN merchant_keys AS k ON m.id = k.merchantId
-WHERE uploadSource = $1 AND starts_with(keymatch, $2);
+SELECT m.id, m.name, m.sourceId, m.ownerId FROM merchants AS m JOIN merchant_keys AS k ON m.id = k.merchantId
+WHERE uploadSource = $1 AND keymatch LIKE $2;
+
+-- name: GetMerchantByName :one
+SELECT * FROM merchants
+WHERE name = $1;
+
+-- name: GetMerchantBySourceId :one
+SELECT * FROM merchants
+WHERE sourceId = $1;
 
 -- name: ListMerchants :many
-SELECT * FROM merchants
-WHERE ownerId = $1;
+SELECT * FROM merchants AS m
+WHERE ownerId = $1
+ORDER BY m.name;
 
 -- name: CreateMerchant :one
 INSERT INTO merchants (
     name,
+    sourceId,
     ownerId
 )
-VALUES ($1, $2)
+VALUES ($1, $2, $3)
 RETURNING *;
 
 -- MERCHANT KEYS
@@ -143,9 +155,10 @@ RETURNING *;
 INSERT INTO merchant_keys (
     keymatch,
     uploadSource,
-    merchantId
+    merchantId,
+    ownerId
 )
-VALUES ($1, $2, $3)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- STATS

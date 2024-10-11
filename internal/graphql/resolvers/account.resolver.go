@@ -5,11 +5,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/google/uuid"
+	"github.com/jdkato/prose/v2"
 	"github.com/proctorinc/banker/internal/auth"
 	"github.com/proctorinc/banker/internal/chase"
 	"github.com/proctorinc/banker/internal/db"
@@ -128,7 +132,16 @@ func (r *mutationResolver) ChaseOFXUpload(ctx context.Context, reader graphql.Up
 	}
 
 	user := auth.GetCurrentUser(ctx)
-	ofxResult, err := chase.ParseChaseOFX(reader.File)
+
+	// Chase QFX contains extra line at beginning of the file
+	// This breaks the OFX reader
+	ofxFile, err := skipFirstLine(reader.File)
+
+	if err != nil {
+		return false, err
+	}
+
+	ofxResult, err := chase.ParseChaseOFX(ofxFile)
 
 	if err != nil {
 		return false, err
@@ -152,27 +165,41 @@ func (r *mutationResolver) ChaseOFXUpload(ctx context.Context, reader graphql.Up
 
 	for _, tx := range ofxResult.Transactions {
 		merchant := new(db.Merchant)
-		// Check if the transaction matches a merchant keymatch
-		res, err := r.Repository.GetMerchantByKey(ctx, db.GetMerchantByKeyParams{
-			StartsWith:   tx.Payee,
-			Uploadsource: db.UploadSourceCHASEOFXUPLOAD,
-		})
+		merchantName := parseMerchantName(tx.Description)
+		merchantId, err := parseMerchantId(tx.Description)
 
-		if err == nil {
+		if err != nil {
+			merchantId = strings.ToUpper(tx.Description)
+		}
+
+		res, err := r.Repository.GetMerchantBySourceId(ctx, sql.NullString{String: merchantId, Valid: merchantId != ""})
+
+		if err != nil {
+			res, err = r.Repository.GetMerchantByName(ctx, merchantName)
+
+			if err != nil {
+				res, err := r.Repository.LinkMerchant(ctx, db.LinkMerchantParams{
+					MerchantName: merchantName, //tx.Description,
+					KeyMatch:     merchantId,
+					UploadSource: db.UploadSourceCHASEOFXUPLOAD,
+					SourceId:     sql.NullString{String: merchantId, Valid: merchantId != ""},
+					UserId:       user.ID,
+				})
+
+				if err != nil {
+					log.Println(err)
+				}
+
+				merchant = res
+			} else {
+				merchant = &res
+			}
+		} else {
 			merchant = &res
 		}
 
 		if err != nil {
-			merchant, err = r.Repository.LinkMerchant(ctx, db.LinkMerchantParams{
-				MerchantName: tx.Payee,
-				KeyMatch:     tx.Payee,
-				UploadSource: db.UploadSourceCHASEOFXUPLOAD,
-				UserId:       user.ID,
-			})
-		}
-
-		if err != nil {
-			return false, err
+			fmt.Println("Merchant unable to be found!")
 		}
 
 		_, err = r.Repository.UpsertTransaction(ctx, db.UpsertTransactionParams{
@@ -206,4 +233,52 @@ func (r *mutationResolver) ChaseOFXUpload(ctx context.Context, reader graphql.Up
 	log.Printf("Account(s) [updated:%d, failed:%d] Transaction(s) [updated:%d, failed:%d]", accountsUploaded, accountsFailed, transactionsUploaded, transactionsFailed)
 
 	return true, nil
+}
+
+func skipFirstLine(reader io.ReadSeeker) (io.ReadSeeker, error) {
+	buf := make([]byte, 2)
+	_, err := reader.Read(buf)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return reader, nil
+}
+
+func parseMerchantName(description string) string {
+	doc, err := prose.NewDocument(description)
+	if err != nil {
+		return description
+	}
+
+	if len(doc.Entities()) > 0 {
+		fmt.Printf("Found merchant name?(entity) %s\n", doc.Entities()[0].Text)
+		return doc.Entities()[0].Text
+	}
+
+	for _, token := range doc.Tokens() {
+		if len(token.Tag) >= 2 && (token.Tag[0:2] == "NN" ||
+			token.Tag[0:2] == "VB" ||
+			token.Tag[0:2] == "MD" ||
+			token.Tag[0:2] == "RB") {
+			fmt.Printf("Found merchant name?(token) %s\n", token.Text)
+			return token.Text
+		}
+	}
+
+	return description
+}
+
+func parseMerchantId(description string) (string, error) {
+	expression := regexp.MustCompile(`\b\d{10}\b`)
+	matches := expression.FindAllString(description, -1)
+
+	if len(matches) > 0 {
+		// Get the last match
+		fmt.Printf("Found merchant id! %s\n", matches[len(matches)-1])
+		return matches[len(matches)-1], nil
+	} else {
+		return "", fmt.Errorf("no merchantId found")
+	}
 }

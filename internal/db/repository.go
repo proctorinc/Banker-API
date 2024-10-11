@@ -34,6 +34,8 @@ type Repository interface {
 
 	// Merchants
 	GetMerchant(ctx context.Context, arg GetMerchantParams) (Merchant, error)
+	GetMerchantByName(ctx context.Context, name string) (Merchant, error)
+	GetMerchantBySourceId(ctx context.Context, sourceId sql.NullString) (Merchant, error)
 	GetMerchantByKey(ctx context.Context, arg GetMerchantByKeyParams) (Merchant, error)
 	ListMerchants(ctx context.Context, ownerid uuid.UUID) ([]Merchant, error)
 	CreateMerchant(ctx context.Context, arg CreateMerchantParams) (Merchant, error)
@@ -80,6 +82,7 @@ type LinkMerchantParams struct {
 	MerchantName string
 	KeyMatch     string
 	UploadSource UploadSource
+	SourceId     sql.NullString
 	UserId       uuid.UUID
 }
 
@@ -88,8 +91,9 @@ func (r *repositoryService) LinkMerchant(ctx context.Context, arg LinkMerchantPa
 
 	err := r.withTx(ctx, func(q *Queries) error {
 		res, err := q.CreateMerchant(ctx, CreateMerchantParams{
-			Name:    arg.MerchantName,
-			Ownerid: arg.UserId,
+			Name:     arg.MerchantName,
+			Ownerid:  arg.UserId,
+			Sourceid: arg.SourceId,
 		})
 
 		if err != nil {
@@ -100,6 +104,7 @@ func (r *repositoryService) LinkMerchant(ctx context.Context, arg LinkMerchantPa
 			Keymatch:     arg.KeyMatch,
 			Uploadsource: arg.UploadSource,
 			Merchantid:   res.ID,
+			Ownerid:      arg.UserId,
 		})
 
 		if err != nil {

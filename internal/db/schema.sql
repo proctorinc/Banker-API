@@ -73,14 +73,17 @@ CREATE TABLE accounts (
 CREATE TABLE merchants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
+    sourceId VARCHAR(255),
     ownerId UUID REFERENCES users (id) NOT NULL
 );
 
 CREATE TABLE merchant_keys (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    keymatch VARCHAR(255) NOT NULL UNIQUE,
+    keymatch VARCHAR(255) NOT NULL,
     uploadSource UPLOAD_SOURCE NOT NULL,
-    merchantId UUID REFERENCES merchants (id) NOT NULL
+    merchantId UUID REFERENCES merchants (id) NOT NULL,
+    ownerId UUID REFERENCES users (id) NOT NULL,
+    UNIQUE (ownerId, keymatch)
 );
 
 CREATE TABLE transactions (
