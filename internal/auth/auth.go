@@ -7,7 +7,6 @@ import (
 
 	"github.com/proctorinc/banker/internal/auth/password"
 	"github.com/proctorinc/banker/internal/auth/session"
-	"github.com/proctorinc/banker/internal/auth/token"
 	"github.com/proctorinc/banker/internal/db"
 )
 
@@ -45,23 +44,25 @@ func (s *AuthService) Login(ctx context.Context, data LoginInput) (*db.User, err
 	user, err := s.Repository.GetUserByEmail(ctx, data.Email)
 
 	if err != nil {
-		log.Printf("Invalid email login from %s", data.Email)
-		return nil, fmt.Errorf("Login failed. Invalid email or password")
+		log.Printf("invalid email login from %s", data.Email)
+		return nil, fmt.Errorf("login failed. Invalid email or password")
 	}
 
 	if err = password.VerifyPassword(data.Password, user.Passwordhash); err != nil {
-		log.Printf("Login failed. Invalid password for user: %s", user.Email)
-		return nil, fmt.Errorf("Login failed. Invalid email or password")
+		log.Printf("login failed. Invalid password for user: %s", user.Email)
+		return nil, fmt.Errorf("login failed. Invalid email or password")
 	}
 
-	token.SetAuthToken(ctx, user.ID)
+	if err = session.SetAuthToken(ctx, user.ID); err != nil {
+		log.Printf("login failed. Error setting auth token %v", err)
+		return nil, fmt.Errorf("login failed. Failed to create auth token")
+	}
 
 	return &user, nil
 }
 
 func (s *AuthService) Logout(ctx context.Context) (string, error) {
-	// reqSession := session.GetSession(ctx)
-	token.RemoveAuthToken(ctx)
+	session.RemoveAuthToken(ctx)
 
 	return "You have successfully logged out", nil
 }

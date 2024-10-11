@@ -2,10 +2,11 @@ package auth
 
 import (
 	"log"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/proctorinc/banker/internal/auth/jwt"
 	"github.com/proctorinc/banker/internal/auth/session"
-	"github.com/proctorinc/banker/internal/auth/token"
 	"github.com/proctorinc/banker/internal/db"
 )
 
@@ -23,30 +24,36 @@ func Middleware(db db.Repository) gin.HandlerFunc {
 
 		session.SetSession(ctx, &reqSession)
 
-		authToken, err := token.GetAuthToken(ctx)
+		tokenString, err := session.GetAuthTokenString(ctx)
 
-		// Deny unauthorized users
-		if authToken.IsEmpty() || err != nil || ctx == nil {
-			log.Println("No auth token supplied")
+		if err != nil {
+			log.Printf("no jwt token present: %v", err)
 			ctx.Next()
 			return
 		}
 
-		userId, err := authToken.GetUserId()
+		jwtToken, err := jwt.VerifyJwt(tokenString)
+
+		if err != nil {
+			log.Printf("error validating JWT token: %v", err)
+			ctx.Next()
+			return
+		}
+
+		if time.Now().After(jwtToken.ExpiresAt) {
+			log.Println("jwt token has expired")
+			ctx.Next()
+			return
+		}
+
+		user, err := db.GetUser(ctx, jwtToken.UserId)
 
 		if err != nil {
 			ctx.Next()
 			return
 		}
 
-		user, err := db.GetUser(ctx, userId)
-
-		if err != nil {
-			ctx.Next()
-			return
-		}
-
-		// Add user to reques context
+		// Add user to request context
 		reqSession.IsLoggedIn = true
 		reqSession.User = &user
 
