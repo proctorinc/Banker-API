@@ -27,6 +27,8 @@ type Repository interface {
 	// Transactions
 	GetTransaction(ctx context.Context, arg GetTransactionParams) (Transaction, error)
 	ListTransactions(ctx context.Context, ownerid uuid.UUID) ([]Transaction, error)
+	ListTransactionsByAccountIds(ctx context.Context, arg ListTransactionsByAccountIdsParams) ([]Transaction, error)
+	ListTransactionsByMerchantId(ctx context.Context, arg ListTransactionsByMerchantIdParams) ([]Transaction, error)
 	UpsertTransaction(ctx context.Context, arg UpsertTransactionParams) (Transaction, error)
 	DeleteTransaction(ctx context.Context, id uuid.UUID) (Transaction, error)
 	GetTotalSpending(ctx context.Context, id uuid.UUID) (interface{}, error) //(GetTotalSpendingRow, error)

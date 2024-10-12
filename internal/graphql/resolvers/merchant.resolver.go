@@ -16,8 +16,23 @@ func (r *merchantResolver) Name(ctx context.Context, merchant *db.Merchant) (str
 	return merchant.Name, nil
 }
 
+func (r *merchantResolver) SourceID(ctx context.Context, merchant *db.Merchant) (*string, error) {
+	if merchant.Sourceid.Valid {
+		return &merchant.Sourceid.String, nil
+	}
+
+	return nil, nil
+}
+
 func (r *merchantResolver) OwnerId(ctx context.Context, merchant *db.Merchant) (string, error) {
 	return merchant.Ownerid.String(), nil
+}
+
+func (r *merchantResolver) Transactions(ctx context.Context, merchant *db.Merchant) ([]db.Transaction, error) {
+	return r.Repository.ListTransactionsByMerchantId(ctx, db.ListTransactionsByMerchantIdParams{
+		Ownerid:    merchant.Ownerid,
+		Merchantid: merchant.ID,
+	})
 }
 
 // Queries

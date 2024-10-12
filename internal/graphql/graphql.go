@@ -6,17 +6,19 @@ import (
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/gin-gonic/gin"
 	"github.com/proctorinc/banker/internal/auth"
+	"github.com/proctorinc/banker/internal/dataloaders"
 	"github.com/proctorinc/banker/internal/db"
 	"github.com/proctorinc/banker/internal/graphql/directives"
 	gen "github.com/proctorinc/banker/internal/graphql/generated"
 	"github.com/proctorinc/banker/internal/graphql/resolvers"
 )
 
-func GraphqlHandler(repo db.Repository) gin.HandlerFunc {
+func GraphqlHandler(repo db.Repository, loaders dataloaders.Retriever) gin.HandlerFunc {
 	config := gen.Config{
 		Resolvers: &resolvers.Resolver{
 			Repository:  repo,
 			AuthService: *auth.NewAuthService(repo),
+			DataLoaders: loaders,
 		},
 	}
 

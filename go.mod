@@ -10,10 +10,13 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jdkato/prose/v2 v2.0.0
 	github.com/lib/pq v1.10.9
+	github.com/vektah/dataloaden v0.3.0
 	github.com/vektah/gqlparser/v2 v2.5.16
 	golang.org/x/crypto v0.26.0
 	golang.org/x/text v0.17.0
 )
+
+require github.com/pkg/errors v0.8.1 // indirect
 
 require (
 	github.com/aclindsa/xml v0.0.0-20201125035057-bbd5c9ec99ac // indirect

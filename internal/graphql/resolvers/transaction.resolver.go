@@ -8,6 +8,7 @@ import (
 	"github.com/proctorinc/banker/internal/auth"
 	"github.com/proctorinc/banker/internal/db"
 	gen "github.com/proctorinc/banker/internal/graphql/generated"
+	"github.com/proctorinc/banker/internal/graphql/utils"
 )
 
 type UploadResponse struct {
@@ -35,7 +36,7 @@ func (r *transactionResolver) UploadSource(ctx context.Context, transaction *db.
 }
 
 func (r *transactionResolver) Amount(ctx context.Context, transaction *db.Transaction) (float64, error) {
-	return float64(transaction.Amount) / 100, nil
+	return utils.FormatCurrencyFloat64(transaction.Amount), nil
 }
 
 func (r *transactionResolver) PayeeID(ctx context.Context, transaction *db.Transaction) (*string, error) {
@@ -135,7 +136,7 @@ func (r *queryResolver) SpendingTotal(ctx context.Context) (float64, error) {
 		return 0, err
 	}
 
-	return float64(spending.(int64)) / 100, nil
+	return utils.FormatCurrencyFloat64(spending.(int32)), nil
 }
 
 func (r *queryResolver) IncomeTotal(ctx context.Context) (float64, error) {
@@ -147,7 +148,7 @@ func (r *queryResolver) IncomeTotal(ctx context.Context) (float64, error) {
 		return 0, err
 	}
 
-	return float64(income.(int64)) / 100, nil
+	return utils.FormatCurrencyFloat64(income.(int32)), nil
 }
 
 func (r *queryResolver) Stats(ctx context.Context, input *gen.StatsInput) (*gen.StatsResponse, error) {
@@ -159,7 +160,7 @@ func (r *queryResolver) Stats(ctx context.Context, input *gen.StatsInput) (*gen.
 	}
 
 	income := gen.IncomeStats{
-		Total:        float64(incomeTotal.(int64)) / 100,
+		Total:        utils.FormatCurrencyFloat64(incomeTotal.(int32)),
 		Transactions: []db.Transaction{},
 	}
 
@@ -170,12 +171,12 @@ func (r *queryResolver) Stats(ctx context.Context, input *gen.StatsInput) (*gen.
 	}
 
 	spending := gen.SpendingStats{
-		Total:        float64(spendingTotal.(int64)) / 100,
+		Total:        utils.FormatCurrencyFloat64(spendingTotal.(int32)),
 		Transactions: []db.Transaction{},
 	}
 
 	net := gen.NetStats{
-		Total: float64(incomeTotal.(int64)+spendingTotal.(int64)) / 100,
+		Total: utils.FormatCurrencyFloat64(incomeTotal.(int32) + spendingTotal.(int32)),
 	}
 
 	response := &gen.StatsResponse{

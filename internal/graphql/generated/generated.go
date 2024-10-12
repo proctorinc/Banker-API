@@ -40,6 +40,7 @@ type Config struct {
 
 type ResolverRoot interface {
 	Account() AccountResolver
+	Merchant() MerchantResolver
 	Mutation() MutationResolver
 	Query() QueryResolver
 	Transaction() TransactionResolver
@@ -58,6 +59,7 @@ type ComplexityRoot struct {
 		RoutingNumber func(childComplexity int) int
 		Sourceid      func(childComplexity int) int
 		Stats         func(childComplexity int, input *StatsInput) int
+		Transactions  func(childComplexity int) int
 		Type          func(childComplexity int) int
 		UploadSource  func(childComplexity int) int
 	}
@@ -68,9 +70,11 @@ type ComplexityRoot struct {
 	}
 
 	Merchant struct {
-		ID      func(childComplexity int) int
-		Name    func(childComplexity int) int
-		Ownerid func(childComplexity int) int
+		ID           func(childComplexity int) int
+		Name         func(childComplexity int) int
+		Ownerid      func(childComplexity int) int
+		SourceID     func(childComplexity int) int
+		Transactions func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -127,6 +131,17 @@ type ComplexityRoot struct {
 		UploadSource    func(childComplexity int) int
 	}
 
+	UploadResponse struct {
+		Accounts     func(childComplexity int) int
+		Success      func(childComplexity int) int
+		Transactions func(childComplexity int) int
+	}
+
+	UploadStats struct {
+		Failed  func(childComplexity int) int
+		Updated func(childComplexity int) int
+	}
+
 	User struct {
 		Accounts     func(childComplexity int) int
 		Email        func(childComplexity int) int
@@ -144,6 +159,12 @@ type AccountResolver interface {
 
 	RoutingNumber(ctx context.Context, obj *db.Account) (*string, error)
 	Stats(ctx context.Context, obj *db.Account, input *StatsInput) (*StatsResponse, error)
+	Transactions(ctx context.Context, obj *db.Account) ([]db.Transaction, error)
+}
+type MerchantResolver interface {
+	SourceID(ctx context.Context, obj *db.Merchant) (*string, error)
+
+	Transactions(ctx context.Context, obj *db.Merchant) ([]db.Transaction, error)
 }
 type MutationResolver interface {
 	Register(ctx context.Context, data RegisterInput) (*db.User, error)
@@ -151,7 +172,7 @@ type MutationResolver interface {
 	Logout(ctx context.Context) (string, error)
 	DeleteUser(ctx context.Context) (*db.User, error)
 	DeleteTransaction(ctx context.Context, id uuid.UUID) (*db.Transaction, error)
-	ChaseOFXUpload(ctx context.Context, file graphql.Upload) (bool, error)
+	ChaseOFXUpload(ctx context.Context, file graphql.Upload) (*UploadResponse, error)
 }
 type QueryResolver interface {
 	User(ctx context.Context, id uuid.UUID) (*db.User, error)
@@ -246,6 +267,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Account.Stats(childComplexity, args["input"].(*StatsInput)), true
 
+	case "Account.transactions":
+		if e.complexity.Account.Transactions == nil {
+			break
+		}
+
+		return e.complexity.Account.Transactions(childComplexity), true
+
 	case "Account.type":
 		if e.complexity.Account.Type == nil {
 			break
@@ -294,6 +322,20 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Merchant.Ownerid(childComplexity), true
+
+	case "Merchant.sourceId":
+		if e.complexity.Merchant.SourceID == nil {
+			break
+		}
+
+		return e.complexity.Merchant.SourceID(childComplexity), true
+
+	case "Merchant.transactions":
+		if e.complexity.Merchant.Transactions == nil {
+			break
+		}
+
+		return e.complexity.Merchant.Transactions(childComplexity), true
 
 	case "Mutation.chaseOFXUpload":
 		if e.complexity.Mutation.ChaseOFXUpload == nil {
@@ -592,6 +634,41 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Transaction.UploadSource(childComplexity), true
 
+	case "UploadResponse.accounts":
+		if e.complexity.UploadResponse.Accounts == nil {
+			break
+		}
+
+		return e.complexity.UploadResponse.Accounts(childComplexity), true
+
+	case "UploadResponse.success":
+		if e.complexity.UploadResponse.Success == nil {
+			break
+		}
+
+		return e.complexity.UploadResponse.Success(childComplexity), true
+
+	case "UploadResponse.transactions":
+		if e.complexity.UploadResponse.Transactions == nil {
+			break
+		}
+
+		return e.complexity.UploadResponse.Transactions(childComplexity), true
+
+	case "UploadStats.failed":
+		if e.complexity.UploadStats.Failed == nil {
+			break
+		}
+
+		return e.complexity.UploadStats.Failed(childComplexity), true
+
+	case "UploadStats.updated":
+		if e.complexity.UploadStats.Updated == nil {
+			break
+		}
+
+		return e.complexity.UploadStats.Updated(childComplexity), true
+
 	case "User.accounts":
 		if e.complexity.User.Accounts == nil {
 			break
@@ -773,6 +850,7 @@ type Account {
     name: String!
     routingNumber: String
     stats(input: StatsInput): StatsResponse! @isAuthenticated
+    transactions: [Transaction!]!
 }
 
 type Transaction {
@@ -795,7 +873,9 @@ type Transaction {
 type Merchant {
     id: ID!
     name: String!
+    sourceId: String
     ownerId: ID!
+    transactions: [Transaction!]!
 }
 
 type Query {
@@ -817,14 +897,19 @@ type Mutation {
     logout: String! @isAuthenticated
     deleteUser: User! @isAuthenticated
     deleteTransaction(id: ID!): Transaction! @isAuthenticated
-    chaseOFXUpload(file: Upload!): Boolean! @isAuthenticated
+    chaseOFXUpload(file: Upload!): UploadResponse! @isAuthenticated
 }
 
-# type UploadResponse {
-#     success: Boolean!
-#     accountsUpdated: Int!
-#     transactionsUpdated: Int!
-# }
+type UploadResponse {
+    success: Boolean!
+    accounts: UploadStats!
+    transactions: UploadStats!
+}
+
+type UploadStats {
+    updated: Int!
+    failed: Int!
+}
 
 type StatsResponse {
     spending: SpendingStats
@@ -1416,6 +1501,80 @@ func (ec *executionContext) fieldContext_Account_stats(ctx context.Context, fiel
 	return fc, nil
 }
 
+func (ec *executionContext) _Account_transactions(ctx context.Context, field graphql.CollectedField, obj *db.Account) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Account_transactions(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Account().Transactions(rctx, obj)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]db.Transaction)
+	fc.Result = res
+	return ec.marshalNTransaction2ᚕgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐTransactionᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Account_transactions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Account",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Transaction_id(ctx, field)
+			case "sourceId":
+				return ec.fieldContext_Transaction_sourceId(ctx, field)
+			case "uploadSource":
+				return ec.fieldContext_Transaction_uploadSource(ctx, field)
+			case "amount":
+				return ec.fieldContext_Transaction_amount(ctx, field)
+			case "payeeId":
+				return ec.fieldContext_Transaction_payeeId(ctx, field)
+			case "payee":
+				return ec.fieldContext_Transaction_payee(ctx, field)
+			case "payeeFull":
+				return ec.fieldContext_Transaction_payeeFull(ctx, field)
+			case "isoCurrencyCode":
+				return ec.fieldContext_Transaction_isoCurrencyCode(ctx, field)
+			case "date":
+				return ec.fieldContext_Transaction_date(ctx, field)
+			case "description":
+				return ec.fieldContext_Transaction_description(ctx, field)
+			case "type":
+				return ec.fieldContext_Transaction_type(ctx, field)
+			case "checkNumber":
+				return ec.fieldContext_Transaction_checkNumber(ctx, field)
+			case "updated":
+				return ec.fieldContext_Transaction_updated(ctx, field)
+			case "merchant":
+				return ec.fieldContext_Transaction_merchant(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _IncomeStats_total(ctx context.Context, field graphql.CollectedField, obj *IncomeStats) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_IncomeStats_total(ctx, field)
 	if err != nil {
@@ -1622,6 +1781,47 @@ func (ec *executionContext) fieldContext_Merchant_name(_ context.Context, field 
 	return fc, nil
 }
 
+func (ec *executionContext) _Merchant_sourceId(ctx context.Context, field graphql.CollectedField, obj *db.Merchant) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Merchant_sourceId(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Merchant().SourceID(rctx, obj)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Merchant_sourceId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Merchant",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Merchant_ownerId(ctx context.Context, field graphql.CollectedField, obj *db.Merchant) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Merchant_ownerId(ctx, field)
 	if err != nil {
@@ -1661,6 +1861,80 @@ func (ec *executionContext) fieldContext_Merchant_ownerId(_ context.Context, fie
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Merchant_transactions(ctx context.Context, field graphql.CollectedField, obj *db.Merchant) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Merchant_transactions(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Merchant().Transactions(rctx, obj)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]db.Transaction)
+	fc.Result = res
+	return ec.marshalNTransaction2ᚕgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐTransactionᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Merchant_transactions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Merchant",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Transaction_id(ctx, field)
+			case "sourceId":
+				return ec.fieldContext_Transaction_sourceId(ctx, field)
+			case "uploadSource":
+				return ec.fieldContext_Transaction_uploadSource(ctx, field)
+			case "amount":
+				return ec.fieldContext_Transaction_amount(ctx, field)
+			case "payeeId":
+				return ec.fieldContext_Transaction_payeeId(ctx, field)
+			case "payee":
+				return ec.fieldContext_Transaction_payee(ctx, field)
+			case "payeeFull":
+				return ec.fieldContext_Transaction_payeeFull(ctx, field)
+			case "isoCurrencyCode":
+				return ec.fieldContext_Transaction_isoCurrencyCode(ctx, field)
+			case "date":
+				return ec.fieldContext_Transaction_date(ctx, field)
+			case "description":
+				return ec.fieldContext_Transaction_description(ctx, field)
+			case "type":
+				return ec.fieldContext_Transaction_type(ctx, field)
+			case "checkNumber":
+				return ec.fieldContext_Transaction_checkNumber(ctx, field)
+			case "updated":
+				return ec.fieldContext_Transaction_updated(ctx, field)
+			case "merchant":
+				return ec.fieldContext_Transaction_merchant(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
 		},
 	}
 	return fc, nil
@@ -2085,10 +2359,10 @@ func (ec *executionContext) _Mutation_chaseOFXUpload(ctx context.Context, field 
 		if tmp == nil {
 			return nil, nil
 		}
-		if data, ok := tmp.(bool); ok {
+		if data, ok := tmp.(*UploadResponse); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be bool`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/proctorinc/banker/internal/graphql/generated.UploadResponse`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2100,9 +2374,9 @@ func (ec *executionContext) _Mutation_chaseOFXUpload(ctx context.Context, field 
 		}
 		return graphql.Null
 	}
-	res := resTmp.(bool)
+	res := resTmp.(*UploadResponse)
 	fc.Result = res
-	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+	return ec.marshalNUploadResponse2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐUploadResponse(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_chaseOFXUpload(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2112,7 +2386,15 @@ func (ec *executionContext) fieldContext_Mutation_chaseOFXUpload(ctx context.Con
 		IsMethod:   true,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Boolean does not have child fields")
+			switch field.Name {
+			case "success":
+				return ec.fieldContext_UploadResponse_success(ctx, field)
+			case "accounts":
+				return ec.fieldContext_UploadResponse_accounts(ctx, field)
+			case "transactions":
+				return ec.fieldContext_UploadResponse_transactions(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type UploadResponse", field.Name)
 		},
 	}
 	defer func() {
@@ -2488,6 +2770,8 @@ func (ec *executionContext) fieldContext_Query_account(ctx context.Context, fiel
 				return ec.fieldContext_Account_routingNumber(ctx, field)
 			case "stats":
 				return ec.fieldContext_Account_stats(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Account_transactions(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Account", field.Name)
 		},
@@ -2579,6 +2863,8 @@ func (ec *executionContext) fieldContext_Query_accounts(_ context.Context, field
 				return ec.fieldContext_Account_routingNumber(ctx, field)
 			case "stats":
 				return ec.fieldContext_Account_stats(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Account_transactions(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Account", field.Name)
 		},
@@ -2842,8 +3128,12 @@ func (ec *executionContext) fieldContext_Query_merchant(ctx context.Context, fie
 				return ec.fieldContext_Merchant_id(ctx, field)
 			case "name":
 				return ec.fieldContext_Merchant_name(ctx, field)
+			case "sourceId":
+				return ec.fieldContext_Merchant_sourceId(ctx, field)
 			case "ownerId":
 				return ec.fieldContext_Merchant_ownerId(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Merchant_transactions(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Merchant", field.Name)
 		},
@@ -2925,8 +3215,12 @@ func (ec *executionContext) fieldContext_Query_merchants(_ context.Context, fiel
 				return ec.fieldContext_Merchant_id(ctx, field)
 			case "name":
 				return ec.fieldContext_Merchant_name(ctx, field)
+			case "sourceId":
+				return ec.fieldContext_Merchant_sourceId(ctx, field)
 			case "ownerId":
 				return ec.fieldContext_Merchant_ownerId(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Merchant_transactions(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Merchant", field.Name)
 		},
@@ -4006,10 +4300,246 @@ func (ec *executionContext) fieldContext_Transaction_merchant(_ context.Context,
 				return ec.fieldContext_Merchant_id(ctx, field)
 			case "name":
 				return ec.fieldContext_Merchant_name(ctx, field)
+			case "sourceId":
+				return ec.fieldContext_Merchant_sourceId(ctx, field)
 			case "ownerId":
 				return ec.fieldContext_Merchant_ownerId(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Merchant_transactions(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Merchant", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UploadResponse_success(ctx context.Context, field graphql.CollectedField, obj *UploadResponse) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_UploadResponse_success(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Success, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_UploadResponse_success(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UploadResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UploadResponse_accounts(ctx context.Context, field graphql.CollectedField, obj *UploadResponse) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_UploadResponse_accounts(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Accounts, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*UploadStats)
+	fc.Result = res
+	return ec.marshalNUploadStats2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐUploadStats(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_UploadResponse_accounts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UploadResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "updated":
+				return ec.fieldContext_UploadStats_updated(ctx, field)
+			case "failed":
+				return ec.fieldContext_UploadStats_failed(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type UploadStats", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UploadResponse_transactions(ctx context.Context, field graphql.CollectedField, obj *UploadResponse) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_UploadResponse_transactions(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Transactions, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*UploadStats)
+	fc.Result = res
+	return ec.marshalNUploadStats2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐUploadStats(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_UploadResponse_transactions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UploadResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "updated":
+				return ec.fieldContext_UploadStats_updated(ctx, field)
+			case "failed":
+				return ec.fieldContext_UploadStats_failed(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type UploadStats", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UploadStats_updated(ctx context.Context, field graphql.CollectedField, obj *UploadStats) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_UploadStats_updated(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Updated, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_UploadStats_updated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UploadStats",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UploadStats_failed(ctx context.Context, field graphql.CollectedField, obj *UploadStats) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_UploadStats_failed(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Failed, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_UploadStats_failed(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UploadStats",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
 		},
 	}
 	return fc, nil
@@ -4318,6 +4848,8 @@ func (ec *executionContext) fieldContext_User_accounts(_ context.Context, field 
 				return ec.fieldContext_Account_routingNumber(ctx, field)
 			case "stats":
 				return ec.fieldContext_Account_stats(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Account_transactions(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Account", field.Name)
 		},
@@ -4368,8 +4900,12 @@ func (ec *executionContext) fieldContext_User_merchants(_ context.Context, field
 				return ec.fieldContext_Merchant_id(ctx, field)
 			case "name":
 				return ec.fieldContext_Merchant_name(ctx, field)
+			case "sourceId":
+				return ec.fieldContext_Merchant_sourceId(ctx, field)
 			case "ownerId":
 				return ec.fieldContext_Merchant_ownerId(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Merchant_transactions(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Merchant", field.Name)
 		},
@@ -6434,6 +6970,42 @@ func (ec *executionContext) _Account(ctx context.Context, sel ast.SelectionSet, 
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "transactions":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Account_transactions(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -6515,18 +7087,87 @@ func (ec *executionContext) _Merchant(ctx context.Context, sel ast.SelectionSet,
 		case "id":
 			out.Values[i] = ec._Merchant_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "name":
 			out.Values[i] = ec._Merchant_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "sourceId":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Merchant_sourceId(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "ownerId":
 			out.Values[i] = ec._Merchant_ownerId(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "transactions":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Merchant_transactions(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -7411,6 +8052,99 @@ func (ec *executionContext) _Transaction(ctx context.Context, sel ast.SelectionS
 	return out
 }
 
+var uploadResponseImplementors = []string{"UploadResponse"}
+
+func (ec *executionContext) _UploadResponse(ctx context.Context, sel ast.SelectionSet, obj *UploadResponse) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, uploadResponseImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("UploadResponse")
+		case "success":
+			out.Values[i] = ec._UploadResponse_success(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "accounts":
+			out.Values[i] = ec._UploadResponse_accounts(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "transactions":
+			out.Values[i] = ec._UploadResponse_transactions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var uploadStatsImplementors = []string{"UploadStats"}
+
+func (ec *executionContext) _UploadStats(ctx context.Context, sel ast.SelectionSet, obj *UploadStats) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, uploadStatsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("UploadStats")
+		case "updated":
+			out.Values[i] = ec._UploadStats_updated(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "failed":
+			out.Values[i] = ec._UploadStats_failed(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var userImplementors = []string{"User"}
 
 func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj *db.User) graphql.Marshaler {
@@ -8038,6 +8772,21 @@ func (ec *executionContext) marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx c
 	return res
 }
 
+func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v interface{}) (int, error) {
+	res, err := graphql.UnmarshalInt(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.SelectionSet, v int) graphql.Marshaler {
+	res := graphql.MarshalInt(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
 func (ec *executionContext) unmarshalNLoginInput2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐLoginInput(ctx context.Context, v interface{}) (LoginInput, error) {
 	res, err := ec.unmarshalInputLoginInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -8206,6 +8955,30 @@ func (ec *executionContext) marshalNUpload2githubᚗcomᚋ99designsᚋgqlgenᚋg
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNUploadResponse2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐUploadResponse(ctx context.Context, sel ast.SelectionSet, v UploadResponse) graphql.Marshaler {
+	return ec._UploadResponse(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNUploadResponse2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐUploadResponse(ctx context.Context, sel ast.SelectionSet, v *UploadResponse) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._UploadResponse(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNUploadStats2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐUploadStats(ctx context.Context, sel ast.SelectionSet, v *UploadStats) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._UploadStats(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNUser2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐUser(ctx context.Context, sel ast.SelectionSet, v db.User) graphql.Marshaler {

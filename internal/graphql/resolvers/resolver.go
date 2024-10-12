@@ -2,6 +2,7 @@ package resolvers
 
 import (
 	"github.com/proctorinc/banker/internal/auth"
+	"github.com/proctorinc/banker/internal/dataloaders"
 	"github.com/proctorinc/banker/internal/db"
 	gen "github.com/proctorinc/banker/internal/graphql/generated"
 )
@@ -9,7 +10,7 @@ import (
 type Resolver struct {
 	Repository  db.Repository
 	AuthService auth.AuthService
-	// DataLoaders dataloaders.Retriever
+	DataLoaders dataloaders.Retriever
 }
 
 type mutationResolver struct{ *Resolver }
@@ -39,6 +40,6 @@ func (r *Resolver) Transaction() gen.TransactionResolver {
 	return &transactionResolver{r}
 }
 
-// func (r *Resolver) Merchant() gen.MerchantResolver {
-// 	return &merchantResolver{r}
-// }
+func (r *Resolver) Merchant() gen.MerchantResolver {
+	return &merchantResolver{r}
+}

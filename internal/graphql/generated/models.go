@@ -47,3 +47,14 @@ type StatsResponse struct {
 	Income   *IncomeStats   `json:"income,omitempty"`
 	Net      *NetStats      `json:"net,omitempty"`
 }
+
+type UploadResponse struct {
+	Success      bool         `json:"success"`
+	Accounts     *UploadStats `json:"accounts"`
+	Transactions *UploadStats `json:"transactions"`
+}
+
+type UploadStats struct {
+	Updated int `json:"updated"`
+	Failed  int `json:"failed"`
+}

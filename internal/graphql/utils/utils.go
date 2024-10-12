@@ -22,3 +22,15 @@ func MaskData(data string) string {
 
 	return data
 }
+
+func FormatCurrencyFloat32(amount int32) float32 {
+	return float32(amount) / 100
+}
+
+func FormatCurrencyFloat64(amount int32) float64 {
+	return float64(amount) / 100
+}
+
+func FormatCurrencyInt(amount float32) int32 {
+	return int32(amount * 100)
+}

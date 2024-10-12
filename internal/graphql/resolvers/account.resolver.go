@@ -51,6 +51,10 @@ func (r *accountResolver) RoutingNumber(ctx context.Context, account *db.Account
 	return nil, nil
 }
 
+func (r *accountResolver) Transactions(ctx context.Context, account *db.Account) ([]db.Transaction, error) {
+	return r.DataLoaders.Retrieve(ctx).TransactionsByAccountId.Load(account.ID.String())
+}
+
 func (r *accountResolver) Stats(ctx context.Context, account *db.Account, input *gen.StatsInput) (*gen.StatsResponse, error) {
 	user := auth.GetCurrentUser(ctx)
 	incomeTotal, err := r.Repository.GetAccountIncome(ctx, db.GetAccountIncomeParams{
@@ -62,8 +66,10 @@ func (r *accountResolver) Stats(ctx context.Context, account *db.Account, input 
 		return nil, err
 	}
 
+	amount := incomeTotal.(int32)
+
 	income := gen.IncomeStats{
-		Total:        float64(incomeTotal.(int64)) / 100,
+		Total:        utils.FormatCurrencyFloat64(amount),
 		Transactions: []db.Transaction{},
 	}
 
@@ -77,12 +83,14 @@ func (r *accountResolver) Stats(ctx context.Context, account *db.Account, input 
 	}
 
 	spending := gen.SpendingStats{
-		Total:        float64(spendingTotal.(int64)) / 100,
+		Total:        utils.FormatCurrencyFloat64(spendingTotal.(int32)),
 		Transactions: []db.Transaction{},
 	}
 
+	total := incomeTotal.(int32) + spendingTotal.(int32)
+
 	net := gen.NetStats{
-		Total: float64(incomeTotal.(int64)+spendingTotal.(int64)) / 100,
+		Total: utils.FormatCurrencyFloat64(total),
 	}
 
 	response := &gen.StatsResponse{
@@ -118,33 +126,40 @@ func (r *queryResolver) Accounts(ctx context.Context) ([]db.Account, error) {
 
 // Mutations
 
-func (r *mutationResolver) ChaseOFXUpload(ctx context.Context, reader graphql.Upload) (bool, error) {
-	accountsUploaded := 0
-	transactionsUploaded := 0
-	accountsFailed := 0
-	transactionsFailed := 0
+func (r *mutationResolver) ChaseOFXUpload(ctx context.Context, reader graphql.Upload) (*gen.UploadResponse, error) {
+	response := &gen.UploadResponse{
+		Success: false,
+		Accounts: &gen.UploadStats{
+			Updated: 0,
+			Failed:  0,
+		},
+		Transactions: &gen.UploadStats{
+			Updated: 0,
+			Failed:  0,
+		},
+	}
 
 	if !bytes.HasSuffix([]byte(reader.Filename), []byte(".ofx")) &&
 		!bytes.HasSuffix([]byte(reader.Filename), []byte(".QFX")) &&
 		!bytes.HasSuffix([]byte(reader.Filename), []byte(".")) {
 		log.Printf("Invalid extension: %s", reader.Filename)
-		return false, fmt.Errorf("Invalid file extension. .OFX/.QBX/.QBO required")
+		return response, fmt.Errorf("Invalid file extension. .OFX/.QBX/.QBO required")
 	}
 
 	user := auth.GetCurrentUser(ctx)
 
 	// Chase QFX contains extra line at beginning of the file
 	// This breaks the OFX reader
-	ofxFile, err := skipFirstLine(reader.File)
+	// ofxFile, err := skipFirstLine(reader.File)
+
+	// if err != nil {
+	// 	return response, err
+	// }
+
+	ofxResult, err := chase.ParseChaseOFX(reader.File)
 
 	if err != nil {
-		return false, err
-	}
-
-	ofxResult, err := chase.ParseChaseOFX(ofxFile)
-
-	if err != nil {
-		return false, err
+		return response, err
 	}
 
 	account, err := r.Repository.UpsertAccount(ctx, db.UpsertAccountParams{
@@ -157,11 +172,12 @@ func (r *mutationResolver) ChaseOFXUpload(ctx context.Context, reader graphql.Up
 	})
 
 	if err != nil {
-		return false, err
+		response.Accounts.Updated++
+		return response, err
 	}
 
 	// Increment successful account upload
-	accountsUploaded++
+	response.Accounts.Updated++
 
 	for _, tx := range ofxResult.Transactions {
 		merchant := new(db.Merchant)
@@ -204,7 +220,7 @@ func (r *mutationResolver) ChaseOFXUpload(ctx context.Context, reader graphql.Up
 
 		_, err = r.Repository.UpsertTransaction(ctx, db.UpsertTransactionParams{
 			Ownerid:         user.ID,
-			Amount:          int32(tx.Amount * 100),
+			Amount:          utils.FormatCurrencyInt(tx.Amount),
 			Payeeid:         sql.NullString{String: tx.PayeeId, Valid: len(tx.PayeeId) > 0},
 			Payee:           sql.NullString{String: tx.Payee, Valid: len(tx.Payee) > 0},
 			Payeefull:       sql.NullString{String: tx.PayeeFull, Valid: len(tx.PayeeFull) > 0},
@@ -222,17 +238,17 @@ func (r *mutationResolver) ChaseOFXUpload(ctx context.Context, reader graphql.Up
 
 		// Increment successful transaction upload
 		if err != nil {
-			transactionsFailed++
+			response.Transactions.Failed++
 			log.Println(tx)
 			log.Println(err)
 		} else {
-			transactionsUploaded++
+			response.Transactions.Updated++
 		}
 	}
 
-	log.Printf("Account(s) [updated:%d, failed:%d] Transaction(s) [updated:%d, failed:%d]", accountsUploaded, accountsFailed, transactionsUploaded, transactionsFailed)
+	response.Success = true
 
-	return true, nil
+	return response, nil
 }
 
 func skipFirstLine(reader io.ReadSeeker) (io.ReadSeeker, error) {

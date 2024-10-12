@@ -67,9 +67,19 @@ WHERE id = $1 and ownerId = $2
 LIMIT 1;
 
 -- name: ListTransactions :many
-SELECT * FROM transactions AS t
+SELECT * FROM transactions
 WHERE ownerId = $1
-ORDER BY t.date;
+ORDER BY date;
+
+-- name: ListTransactionsByAccountIds :many
+SELECT t.* FROM transactions AS t, accounts AS a
+WHERE t.ownerId = $1 AND agents.id = ANY($2::varchar[])
+ORDER BY date;
+
+-- name: ListTransactionsByMerchantId :many
+SELECT * FROM transactions
+WHERE ownerId = $1 AND merchantId = $2
+ORDER BY date;
 
 -- name: UpsertTransaction :one
 INSERT INTO transactions (
@@ -124,7 +134,7 @@ WHERE id = $1 and ownerId = $2
 LIMIT 1;
 
 -- name: GetMerchantByKey :one
-SELECT m.id, m.name, m.sourceId, m.ownerId FROM merchants AS m JOIN merchant_keys AS k ON m.id = k.merchantId
+SELECT m.* FROM merchants AS m JOIN merchant_keys AS k ON m.id = k.merchantId
 WHERE uploadSource = $1 AND keymatch LIKE $2;
 
 -- name: GetMerchantByName :one
@@ -136,9 +146,9 @@ SELECT * FROM merchants
 WHERE sourceId = $1;
 
 -- name: ListMerchants :many
-SELECT * FROM merchants AS m
+SELECT * FROM merchants
 WHERE ownerId = $1
-ORDER BY m.name;
+ORDER BY name;
 
 -- name: CreateMerchant :one
 INSERT INTO merchants (
