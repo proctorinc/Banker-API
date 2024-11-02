@@ -130,13 +130,13 @@ func (r *queryResolver) Transactions(ctx context.Context) ([]db.Transaction, err
 func (r *queryResolver) SpendingTotal(ctx context.Context) (float64, error) {
 	user := auth.GetCurrentUser(ctx)
 
-	spending, err := r.Repository.GetTotalSpending(ctx, user.ID)
+	spendingTotal, err := r.Repository.GetTotalSpending(ctx, user.ID)
 
 	if err != nil {
 		return 0, err
 	}
 
-	return utils.FormatCurrencyFloat64(spending.(int32)), nil
+	return utils.FormatCurrencyFloat64(int32(spendingTotal.(int64))), nil
 }
 
 func (r *queryResolver) IncomeTotal(ctx context.Context) (float64, error) {
@@ -160,7 +160,7 @@ func (r *queryResolver) Stats(ctx context.Context, input *gen.StatsInput) (*gen.
 	}
 
 	income := gen.IncomeStats{
-		Total:        utils.FormatCurrencyFloat64(incomeTotal.(int32)),
+		Total:        utils.FormatCurrencyFloat64(int32(incomeTotal.(int64))),
 		Transactions: []db.Transaction{},
 	}
 
@@ -171,12 +171,12 @@ func (r *queryResolver) Stats(ctx context.Context, input *gen.StatsInput) (*gen.
 	}
 
 	spending := gen.SpendingStats{
-		Total:        utils.FormatCurrencyFloat64(spendingTotal.(int32)),
+		Total:        utils.FormatCurrencyFloat64(int32(spendingTotal.(int64))),
 		Transactions: []db.Transaction{},
 	}
 
 	net := gen.NetStats{
-		Total: utils.FormatCurrencyFloat64(incomeTotal.(int32) + spendingTotal.(int32)),
+		Total: utils.FormatCurrencyFloat64(int32(incomeTotal.(int64)) + int32(spendingTotal.(int64))),
 	}
 
 	response := &gen.StatsResponse{

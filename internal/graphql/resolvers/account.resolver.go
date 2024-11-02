@@ -66,7 +66,7 @@ func (r *accountResolver) Stats(ctx context.Context, account *db.Account, input 
 		return nil, err
 	}
 
-	amount := incomeTotal.(int32)
+	amount := int32(incomeTotal.(int64))
 
 	income := gen.IncomeStats{
 		Total:        utils.FormatCurrencyFloat64(amount),
@@ -83,11 +83,11 @@ func (r *accountResolver) Stats(ctx context.Context, account *db.Account, input 
 	}
 
 	spending := gen.SpendingStats{
-		Total:        utils.FormatCurrencyFloat64(spendingTotal.(int32)),
+		Total:        utils.FormatCurrencyFloat64(int32(spendingTotal.(int64))),
 		Transactions: []db.Transaction{},
 	}
 
-	total := incomeTotal.(int32) + spendingTotal.(int32)
+	total := int32(incomeTotal.(int64)) + int32(spendingTotal.(int64))
 
 	net := gen.NetStats{
 		Total: utils.FormatCurrencyFloat64(total),
