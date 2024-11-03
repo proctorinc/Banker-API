@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/proctorinc/banker/internal/auth"
 	"github.com/proctorinc/banker/internal/db"
-	gen "github.com/proctorinc/banker/internal/graphql/generated"
 	"github.com/proctorinc/banker/internal/graphql/utils"
 )
 
@@ -125,67 +124,6 @@ func (r *queryResolver) Transactions(ctx context.Context) ([]db.Transaction, err
 	user := auth.GetCurrentUser(ctx)
 
 	return r.Repository.ListTransactions(ctx, user.ID)
-}
-
-func (r *queryResolver) SpendingTotal(ctx context.Context) (float64, error) {
-	user := auth.GetCurrentUser(ctx)
-
-	spendingTotal, err := r.Repository.GetTotalSpending(ctx, user.ID)
-
-	if err != nil {
-		return 0, err
-	}
-
-	return utils.FormatCurrencyFloat64(int32(spendingTotal.(int64))), nil
-}
-
-func (r *queryResolver) IncomeTotal(ctx context.Context) (float64, error) {
-	user := auth.GetCurrentUser(ctx)
-
-	income, err := r.Repository.GetTotalIncome(ctx, user.ID)
-
-	if err != nil {
-		return 0, err
-	}
-
-	return utils.FormatCurrencyFloat64(income.(int32)), nil
-}
-
-func (r *queryResolver) Stats(ctx context.Context, input *gen.StatsInput) (*gen.StatsResponse, error) {
-	user := auth.GetCurrentUser(ctx)
-	incomeTotal, err := r.Repository.GetTotalIncome(ctx, user.ID)
-
-	if err != nil {
-		return nil, err
-	}
-
-	income := gen.IncomeStats{
-		Total:        utils.FormatCurrencyFloat64(int32(incomeTotal.(int64))),
-		Transactions: []db.Transaction{},
-	}
-
-	spendingTotal, err := r.Repository.GetTotalSpending(ctx, user.ID)
-
-	if err != nil {
-		return nil, err
-	}
-
-	spending := gen.SpendingStats{
-		Total:        utils.FormatCurrencyFloat64(int32(spendingTotal.(int64))),
-		Transactions: []db.Transaction{},
-	}
-
-	net := gen.NetStats{
-		Total: utils.FormatCurrencyFloat64(int32(incomeTotal.(int64)) + int32(spendingTotal.(int64))),
-	}
-
-	response := &gen.StatsResponse{
-		Spending: &spending,
-		Income:   &income,
-		Net:      &net,
-	}
-
-	return response, nil
 }
 
 // Mutations

@@ -55,9 +55,18 @@ func (r *accountResolver) Transactions(ctx context.Context, account *db.Account)
 	return r.DataLoaders.Retrieve(ctx).TransactionsByAccountId.Load(account.ID.String())
 }
 
-func (r *accountResolver) Stats(ctx context.Context, account *db.Account, input *gen.StatsInput) (*gen.StatsResponse, error) {
+func (r *accountResolver) Stats(ctx context.Context, account *db.Account) (*gen.StatsResponse, error) {
 	user := auth.GetCurrentUser(ctx)
 	incomeTotal, err := r.Repository.GetAccountIncome(ctx, db.GetAccountIncomeParams{
+		Ownerid:   user.ID,
+		Accountid: account.ID,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	incomeTransactions, err := r.Repository.ListAccountIncomeTransactions(ctx, db.ListAccountIncomeTransactionsParams{
 		Ownerid:   user.ID,
 		Accountid: account.ID,
 	})
@@ -70,7 +79,7 @@ func (r *accountResolver) Stats(ctx context.Context, account *db.Account, input 
 
 	income := gen.IncomeStats{
 		Total:        utils.FormatCurrencyFloat64(amount),
-		Transactions: []db.Transaction{},
+		Transactions: incomeTransactions,
 	}
 
 	spendingTotal, err := r.Repository.GetAccountSpending(ctx, db.GetAccountSpendingParams{
@@ -82,9 +91,18 @@ func (r *accountResolver) Stats(ctx context.Context, account *db.Account, input 
 		return nil, err
 	}
 
+	spendingTransactions, err := r.Repository.ListAccountSpendingTransactions(ctx, db.ListAccountSpendingTransactionsParams{
+		Ownerid:   user.ID,
+		Accountid: account.ID,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
 	spending := gen.SpendingStats{
 		Total:        utils.FormatCurrencyFloat64(int32(spendingTotal.(int64))),
-		Transactions: []db.Transaction{},
+		Transactions: spendingTransactions,
 	}
 
 	total := int32(incomeTotal.(int64)) + int32(spendingTotal.(int64))

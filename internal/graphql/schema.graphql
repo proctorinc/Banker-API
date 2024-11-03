@@ -21,7 +21,7 @@ type Account {
     type: String!
     name: String!
     routingNumber: String
-    stats(input: StatsInput): StatsResponse! @isAuthenticated
+    stats: StatsResponse! @isAuthenticated
     transactions: [Transaction!]!
 }
 
@@ -60,7 +60,7 @@ type Query {
     transactions: [Transaction!]! @isAuthenticated
     merchant(id: ID!): Merchant @isAuthenticated
     merchants: [Merchant!]! @isAuthenticated
-    stats(input: StatsInput): StatsResponse! @isAuthenticated
+    stats(input: StatsInput!): StatsResponse! @isAuthenticated
 }
 
 type Mutation {

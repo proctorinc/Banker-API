@@ -21,18 +21,22 @@ type Repository interface {
 	GetAccount(ctx context.Context, arg GetAccountParams) (Account, error)
 	ListAccounts(ctx context.Context, ownerid uuid.UUID) ([]Account, error)
 	UpsertAccount(ctx context.Context, arg UpsertAccountParams) (Account, error)
-	GetAccountSpending(ctx context.Context, arg GetAccountSpendingParams) (interface{}, error) //(GetAccountSpendingRow, error)
-	GetAccountIncome(ctx context.Context, arg GetAccountIncomeParams) (interface{}, error)     //(GetAccountIncomeRow, error)
+	GetAccountSpending(ctx context.Context, arg GetAccountSpendingParams) (interface{}, error)
+	GetAccountIncome(ctx context.Context, arg GetAccountIncomeParams) (interface{}, error)
 
 	// Transactions
 	GetTransaction(ctx context.Context, arg GetTransactionParams) (Transaction, error)
 	ListTransactions(ctx context.Context, ownerid uuid.UUID) ([]Transaction, error)
 	ListTransactionsByAccountIds(ctx context.Context, arg ListTransactionsByAccountIdsParams) ([]Transaction, error)
 	ListTransactionsByMerchantId(ctx context.Context, arg ListTransactionsByMerchantIdParams) ([]Transaction, error)
+	ListSpendingTransactions(ctx context.Context, arg ListSpendingTransactionsParams) ([]Transaction, error)
+	ListIncomeTransactions(ctx context.Context, arg ListIncomeTransactionsParams) ([]Transaction, error)
+	ListAccountSpendingTransactions(ctx context.Context, arg ListAccountSpendingTransactionsParams) ([]Transaction, error)
+	ListAccountIncomeTransactions(ctx context.Context, arg ListAccountIncomeTransactionsParams) ([]Transaction, error)
 	UpsertTransaction(ctx context.Context, arg UpsertTransactionParams) (Transaction, error)
 	DeleteTransaction(ctx context.Context, id uuid.UUID) (Transaction, error)
-	GetTotalSpending(ctx context.Context, id uuid.UUID) (interface{}, error) //(GetTotalSpendingRow, error)
-	GetTotalIncome(ctx context.Context, id uuid.UUID) (interface{}, error)   //(GetTotalIncomeRow, error)
+	GetTotalSpending(ctx context.Context, arg GetTotalSpendingParams) (interface{}, error)
+	GetTotalIncome(ctx context.Context, arg GetTotalIncomeParams) (interface{}, error)
 
 	// Merchants
 	GetMerchant(ctx context.Context, arg GetMerchantParams) (Merchant, error)

@@ -1,6 +1,11 @@
 package dataloaders
 
 //go:generate go run github.com/vektah/dataloaden TransactionLoader string []github.com/proctorinc/banker/internal/db.Transaction
+/*
+*
+* TODO: Add other dataloaders
+*
+ */
 
 import (
 	"context"

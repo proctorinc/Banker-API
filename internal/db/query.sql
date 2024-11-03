@@ -81,6 +81,26 @@ SELECT * FROM transactions
 WHERE ownerId = $1 AND merchantId = $2
 ORDER BY date;
 
+-- name: ListSpendingTransactions :many
+SELECT * FROM transactions
+WHERE ownerId = $1 AND amount < 0 AND date BETWEEN @startdate AND @enddate
+ORDER BY date;
+
+-- name: ListIncomeTransactions :many
+SELECT * FROM transactions
+WHERE ownerId = $1 AND amount >= 0 AND date BETWEEN @startdate AND @enddate
+ORDER BY date;
+
+-- name: ListAccountSpendingTransactions :many
+SELECT * FROM transactions
+WHERE ownerId = $1 AND accountId = $2 AND amount < 0
+ORDER BY date;
+
+-- name: ListAccountIncomeTransactions :many
+SELECT * FROM transactions
+WHERE ownerId = $1 AND accountId = $2 AND amount >= 0
+ORDER BY date;
+
 -- name: UpsertTransaction :one
 INSERT INTO transactions (
     sourceId,
@@ -175,11 +195,11 @@ RETURNING *;
 
 -- name: GetTotalSpending :one
 SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions
-WHERE ownerId = $1 AND amount < 0;
+WHERE ownerId = $1 AND amount < 0 AND date BETWEEN @startdate AND @enddate;
 
 -- name: GetTotalIncome :one
 SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions
-WHERE ownerId = $1 AND amount > 0;
+WHERE ownerId = $1 AND amount > 0 AND date BETWEEN @startdate AND @enddate;
 
 -- name: GetAccountSpending :one
 SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions

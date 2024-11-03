@@ -58,7 +58,7 @@ type ComplexityRoot struct {
 		Name          func(childComplexity int) int
 		RoutingNumber func(childComplexity int) int
 		Sourceid      func(childComplexity int) int
-		Stats         func(childComplexity int, input *StatsInput) int
+		Stats         func(childComplexity int) int
 		Transactions  func(childComplexity int) int
 		Type          func(childComplexity int) int
 		UploadSource  func(childComplexity int) int
@@ -96,7 +96,7 @@ type ComplexityRoot struct {
 		Me           func(childComplexity int) int
 		Merchant     func(childComplexity int, id uuid.UUID) int
 		Merchants    func(childComplexity int) int
-		Stats        func(childComplexity int, input *StatsInput) int
+		Stats        func(childComplexity int, input StatsInput) int
 		Transaction  func(childComplexity int, id uuid.UUID) int
 		Transactions func(childComplexity int) int
 		User         func(childComplexity int, id uuid.UUID) int
@@ -158,7 +158,7 @@ type AccountResolver interface {
 	Type(ctx context.Context, obj *db.Account) (string, error)
 
 	RoutingNumber(ctx context.Context, obj *db.Account) (*string, error)
-	Stats(ctx context.Context, obj *db.Account, input *StatsInput) (*StatsResponse, error)
+	Stats(ctx context.Context, obj *db.Account) (*StatsResponse, error)
 	Transactions(ctx context.Context, obj *db.Account) ([]db.Transaction, error)
 }
 type MerchantResolver interface {
@@ -184,7 +184,7 @@ type QueryResolver interface {
 	Transactions(ctx context.Context) ([]db.Transaction, error)
 	Merchant(ctx context.Context, id uuid.UUID) (*db.Merchant, error)
 	Merchants(ctx context.Context) ([]db.Merchant, error)
-	Stats(ctx context.Context, input *StatsInput) (*StatsResponse, error)
+	Stats(ctx context.Context, input StatsInput) (*StatsResponse, error)
 }
 type TransactionResolver interface {
 	UploadSource(ctx context.Context, obj *db.Transaction) (string, error)
@@ -260,12 +260,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Account_stats_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Account.Stats(childComplexity, args["input"].(*StatsInput)), true
+		return e.complexity.Account.Stats(childComplexity), true
 
 	case "Account.transactions":
 		if e.complexity.Account.Transactions == nil {
@@ -461,7 +456,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.Stats(childComplexity, args["input"].(*StatsInput)), true
+		return e.complexity.Query.Stats(childComplexity, args["input"].(StatsInput)), true
 
 	case "Query.transaction":
 		if e.complexity.Query.Transaction == nil {
@@ -849,7 +844,7 @@ type Account {
     type: String!
     name: String!
     routingNumber: String
-    stats(input: StatsInput): StatsResponse! @isAuthenticated
+    stats: StatsResponse! @isAuthenticated
     transactions: [Transaction!]!
 }
 
@@ -888,7 +883,7 @@ type Query {
     transactions: [Transaction!]! @isAuthenticated
     merchant(id: ID!): Merchant @isAuthenticated
     merchants: [Merchant!]! @isAuthenticated
-    stats(input: StatsInput): StatsResponse! @isAuthenticated
+    stats(input: StatsInput!): StatsResponse! @isAuthenticated
 }
 
 type Mutation {
@@ -953,21 +948,6 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 // endregion ************************** generated!.gotpl **************************
 
 // region    ***************************** args.gotpl *****************************
-
-func (ec *executionContext) field_Account_stats_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	args := map[string]interface{}{}
-	var arg0 *StatsInput
-	if tmp, ok := rawArgs["input"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalOStatsInput2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐStatsInput(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["input"] = arg0
-	return args, nil
-}
 
 func (ec *executionContext) field_Mutation_chaseOFXUpload_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
@@ -1077,10 +1057,10 @@ func (ec *executionContext) field_Query_merchant_args(ctx context.Context, rawAr
 func (ec *executionContext) field_Query_stats_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 *StatsInput
+	var arg0 StatsInput
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalOStatsInput2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐStatsInput(ctx, tmp)
+		arg0, err = ec.unmarshalNStatsInput2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐStatsInput(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1433,7 +1413,7 @@ func (ec *executionContext) _Account_stats(ctx context.Context, field graphql.Co
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		directive0 := func(rctx context.Context) (interface{}, error) {
 			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Account().Stats(rctx, obj, fc.Args["input"].(*StatsInput))
+			return ec.resolvers.Account().Stats(rctx, obj)
 		}
 		directive1 := func(ctx context.Context) (interface{}, error) {
 			if ec.directives.IsAuthenticated == nil {
@@ -1469,7 +1449,7 @@ func (ec *executionContext) _Account_stats(ctx context.Context, field graphql.Co
 	return ec.marshalNStatsResponse2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐStatsResponse(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Account_stats(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Account_stats(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Account",
 		Field:      field,
@@ -1486,17 +1466,6 @@ func (ec *executionContext) fieldContext_Account_stats(ctx context.Context, fiel
 			}
 			return nil, fmt.Errorf("no field named %q was found under type StatsResponse", field.Name)
 		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Account_stats_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
 	}
 	return fc, nil
 }
@@ -3243,7 +3212,7 @@ func (ec *executionContext) _Query_stats(ctx context.Context, field graphql.Coll
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		directive0 := func(rctx context.Context) (interface{}, error) {
 			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Query().Stats(rctx, fc.Args["input"].(*StatsInput))
+			return ec.resolvers.Query().Stats(rctx, fc.Args["input"].(StatsInput))
 		}
 		directive1 := func(ctx context.Context) (interface{}, error) {
 			if ec.directives.IsAuthenticated == nil {
@@ -8855,6 +8824,11 @@ func (ec *executionContext) unmarshalNRegisterInput2githubᚗcomᚋproctorincᚋ
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalNStatsInput2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐStatsInput(ctx context.Context, v interface{}) (StatsInput, error) {
+	res, err := ec.unmarshalInputStatsInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) marshalNStatsResponse2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐStatsResponse(ctx context.Context, sel ast.SelectionSet, v StatsResponse) graphql.Marshaler {
 	return ec._StatsResponse(ctx, sel, &v)
 }
@@ -9351,14 +9325,6 @@ func (ec *executionContext) marshalOSpendingStats2ᚖgithubᚗcomᚋproctorinc�
 		return graphql.Null
 	}
 	return ec._SpendingStats(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalOStatsInput2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐStatsInput(ctx context.Context, v interface{}) (*StatsInput, error) {
-	if v == nil {
-		return nil, nil
-	}
-	res, err := ec.unmarshalInputStatsInput(ctx, v)
-	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v interface{}) (*string, error) {

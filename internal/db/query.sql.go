@@ -300,11 +300,17 @@ func (q *Queries) GetMerchantBySourceId(ctx context.Context, sourceid sql.NullSt
 
 const getTotalIncome = `-- name: GetTotalIncome :one
 SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions
-WHERE ownerId = $1 AND amount > 0
+WHERE ownerId = $1 AND amount > 0 AND date BETWEEN $2 AND $3
 `
 
-func (q *Queries) GetTotalIncome(ctx context.Context, ownerid uuid.UUID) (interface{}, error) {
-	row := q.db.QueryRowContext(ctx, getTotalIncome, ownerid)
+type GetTotalIncomeParams struct {
+	Ownerid   uuid.UUID
+	Startdate time.Time
+	Enddate   time.Time
+}
+
+func (q *Queries) GetTotalIncome(ctx context.Context, arg GetTotalIncomeParams) (interface{}, error) {
+	row := q.db.QueryRowContext(ctx, getTotalIncome, arg.Ownerid, arg.Startdate, arg.Enddate)
 	var sum interface{}
 	err := row.Scan(&sum)
 	return sum, err
@@ -313,12 +319,18 @@ func (q *Queries) GetTotalIncome(ctx context.Context, ownerid uuid.UUID) (interf
 const getTotalSpending = `-- name: GetTotalSpending :one
 
 SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions
-WHERE ownerId = $1 AND amount < 0
+WHERE ownerId = $1 AND amount < 0 AND date BETWEEN $2 AND $3
 `
 
+type GetTotalSpendingParams struct {
+	Ownerid   uuid.UUID
+	Startdate time.Time
+	Enddate   time.Time
+}
+
 // STATS
-func (q *Queries) GetTotalSpending(ctx context.Context, ownerid uuid.UUID) (interface{}, error) {
-	row := q.db.QueryRowContext(ctx, getTotalSpending, ownerid)
+func (q *Queries) GetTotalSpending(ctx context.Context, arg GetTotalSpendingParams) (interface{}, error) {
+	row := q.db.QueryRowContext(ctx, getTotalSpending, arg.Ownerid, arg.Startdate, arg.Enddate)
 	var sum interface{}
 	err := row.Scan(&sum)
 	return sum, err
@@ -399,6 +411,108 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 	return i, err
 }
 
+const listAccountIncomeTransactions = `-- name: ListAccountIncomeTransactions :many
+SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid FROM transactions
+WHERE ownerId = $1 AND accountId = $2 AND amount >= 0
+ORDER BY date
+`
+
+type ListAccountIncomeTransactionsParams struct {
+	Ownerid   uuid.UUID
+	Accountid uuid.UUID
+}
+
+func (q *Queries) ListAccountIncomeTransactions(ctx context.Context, arg ListAccountIncomeTransactionsParams) ([]Transaction, error) {
+	rows, err := q.db.QueryContext(ctx, listAccountIncomeTransactions, arg.Ownerid, arg.Accountid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Transaction
+	for rows.Next() {
+		var i Transaction
+		if err := rows.Scan(
+			&i.ID,
+			&i.Sourceid,
+			&i.Uploadsource,
+			&i.Amount,
+			&i.Payeeid,
+			&i.Payee,
+			&i.Payeefull,
+			&i.Isocurrencycode,
+			&i.Date,
+			&i.Description,
+			&i.Type,
+			&i.Checknumber,
+			&i.Updated,
+			&i.Merchantid,
+			&i.Ownerid,
+			&i.Accountid,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAccountSpendingTransactions = `-- name: ListAccountSpendingTransactions :many
+SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid FROM transactions
+WHERE ownerId = $1 AND accountId = $2 AND amount < 0
+ORDER BY date
+`
+
+type ListAccountSpendingTransactionsParams struct {
+	Ownerid   uuid.UUID
+	Accountid uuid.UUID
+}
+
+func (q *Queries) ListAccountSpendingTransactions(ctx context.Context, arg ListAccountSpendingTransactionsParams) ([]Transaction, error) {
+	rows, err := q.db.QueryContext(ctx, listAccountSpendingTransactions, arg.Ownerid, arg.Accountid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Transaction
+	for rows.Next() {
+		var i Transaction
+		if err := rows.Scan(
+			&i.ID,
+			&i.Sourceid,
+			&i.Uploadsource,
+			&i.Amount,
+			&i.Payeeid,
+			&i.Payee,
+			&i.Payeefull,
+			&i.Isocurrencycode,
+			&i.Date,
+			&i.Description,
+			&i.Type,
+			&i.Checknumber,
+			&i.Updated,
+			&i.Merchantid,
+			&i.Ownerid,
+			&i.Accountid,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAccounts = `-- name: ListAccounts :many
 SELECT id, sourceid, uploadsource, type, name, routingnumber, updated, ownerid FROM accounts AS a
 WHERE ownerId = $1
@@ -437,6 +551,58 @@ func (q *Queries) ListAccounts(ctx context.Context, ownerid uuid.UUID) ([]Accoun
 	return items, nil
 }
 
+const listIncomeTransactions = `-- name: ListIncomeTransactions :many
+SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid FROM transactions
+WHERE ownerId = $1 AND amount >= 0 AND date BETWEEN $2 AND $3
+ORDER BY date
+`
+
+type ListIncomeTransactionsParams struct {
+	Ownerid   uuid.UUID
+	Startdate time.Time
+	Enddate   time.Time
+}
+
+func (q *Queries) ListIncomeTransactions(ctx context.Context, arg ListIncomeTransactionsParams) ([]Transaction, error) {
+	rows, err := q.db.QueryContext(ctx, listIncomeTransactions, arg.Ownerid, arg.Startdate, arg.Enddate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Transaction
+	for rows.Next() {
+		var i Transaction
+		if err := rows.Scan(
+			&i.ID,
+			&i.Sourceid,
+			&i.Uploadsource,
+			&i.Amount,
+			&i.Payeeid,
+			&i.Payee,
+			&i.Payeefull,
+			&i.Isocurrencycode,
+			&i.Date,
+			&i.Description,
+			&i.Type,
+			&i.Checknumber,
+			&i.Updated,
+			&i.Merchantid,
+			&i.Ownerid,
+			&i.Accountid,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMerchants = `-- name: ListMerchants :many
 SELECT id, name, sourceid, ownerid FROM merchants
 WHERE ownerId = $1
@@ -457,6 +623,58 @@ func (q *Queries) ListMerchants(ctx context.Context, ownerid uuid.UUID) ([]Merch
 			&i.Name,
 			&i.Sourceid,
 			&i.Ownerid,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSpendingTransactions = `-- name: ListSpendingTransactions :many
+SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid FROM transactions
+WHERE ownerId = $1 AND amount < 0 AND date BETWEEN $2 AND $3
+ORDER BY date
+`
+
+type ListSpendingTransactionsParams struct {
+	Ownerid   uuid.UUID
+	Startdate time.Time
+	Enddate   time.Time
+}
+
+func (q *Queries) ListSpendingTransactions(ctx context.Context, arg ListSpendingTransactionsParams) ([]Transaction, error) {
+	rows, err := q.db.QueryContext(ctx, listSpendingTransactions, arg.Ownerid, arg.Startdate, arg.Enddate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Transaction
+	for rows.Next() {
+		var i Transaction
+		if err := rows.Scan(
+			&i.ID,
+			&i.Sourceid,
+			&i.Uploadsource,
+			&i.Amount,
+			&i.Payeeid,
+			&i.Payee,
+			&i.Payeefull,
+			&i.Isocurrencycode,
+			&i.Date,
+			&i.Description,
+			&i.Type,
+			&i.Checknumber,
+			&i.Updated,
+			&i.Merchantid,
+			&i.Ownerid,
+			&i.Accountid,
 		); err != nil {
 			return nil, err
 		}
