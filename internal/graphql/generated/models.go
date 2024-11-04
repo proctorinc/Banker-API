@@ -4,7 +4,18 @@ package gen
 
 import (
 	"github.com/proctorinc/banker/internal/db"
+	"github.com/proctorinc/banker/internal/graphql/paging"
 )
+
+type AccountConnection struct {
+	Edges    []AccountEdge    `json:"edges"`
+	PageInfo *paging.PageInfo `json:"pageInfo"`
+}
+
+type AccountEdge struct {
+	Cursor *string     `json:"cursor,omitempty"`
+	Node   *db.Account `json:"node"`
+}
 
 type IncomeStats struct {
 	Total        float64          `json:"total"`
@@ -14,6 +25,16 @@ type IncomeStats struct {
 type LoginInput struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+type MerchantConnection struct {
+	Edges    []MerchantEdge   `json:"edges"`
+	PageInfo *paging.PageInfo `json:"pageInfo"`
+}
+
+type MerchantEdge struct {
+	Cursor *string      `json:"cursor,omitempty"`
+	Node   *db.Merchant `json:"node"`
 }
 
 type Mutation struct {
@@ -48,6 +69,16 @@ type StatsResponse struct {
 	Net      *NetStats      `json:"net,omitempty"`
 }
 
+type TransactionConnection struct {
+	Edges    []TransactionEdge `json:"edges"`
+	PageInfo *paging.PageInfo  `json:"pageInfo"`
+}
+
+type TransactionEdge struct {
+	Cursor *string         `json:"cursor,omitempty"`
+	Node   *db.Transaction `json:"node"`
+}
+
 type UploadResponse struct {
 	Success      bool         `json:"success"`
 	Accounts     *UploadStats `json:"accounts"`
@@ -57,4 +88,14 @@ type UploadResponse struct {
 type UploadStats struct {
 	Updated int `json:"updated"`
 	Failed  int `json:"failed"`
+}
+
+type UserConnection struct {
+	Edges    []UserEdge       `json:"edges"`
+	PageInfo *paging.PageInfo `json:"pageInfo"`
+}
+
+type UserEdge struct {
+	Cursor *string  `json:"cursor,omitempty"`
+	Node   *db.User `json:"node"`
 }

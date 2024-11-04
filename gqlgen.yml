@@ -1,6 +1,6 @@
 # Where are all the schema files located? globs are supported eg  src/**/*.graphqls
 schema:
-  - internal/graphql/*.graphql
+  - internal/graphql/schema/*.graphql
 
 # Where should the generated server code go?
 exec:
@@ -80,3 +80,10 @@ models:
       - github.com/99designs/gqlgen/graphql.Int
       - github.com/99designs/gqlgen/graphql.Int64
       - github.com/99designs/gqlgen/graphql.Int32
+
+  # [agination models
+  PageArgs:
+    model: "github.com/proctorinc/banker/internal/graphql/paging.PageArgs"
+
+  PageInfo:
+    model: "github.com/proctorinc/banker/internal/graphql/paging.PageInfo"

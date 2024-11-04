@@ -18,6 +18,7 @@ import (
 	"github.com/proctorinc/banker/internal/chase"
 	"github.com/proctorinc/banker/internal/db"
 	gen "github.com/proctorinc/banker/internal/graphql/generated"
+	"github.com/proctorinc/banker/internal/graphql/paging"
 	"github.com/proctorinc/banker/internal/graphql/utils"
 )
 
@@ -136,10 +137,18 @@ func (r *queryResolver) Account(ctx context.Context, accountId uuid.UUID) (*db.A
 	return &account, nil
 }
 
-func (r *queryResolver) Accounts(ctx context.Context) ([]db.Account, error) {
+func (r *queryResolver) Accounts(ctx context.Context, page *paging.PageArgs) (*gen.AccountConnection, error) {
 	user := auth.GetCurrentUser(ctx)
 
-	return r.Repository.ListAccounts(ctx, user.ID)
+	paginator := paging.NewOffsetPaginator(page, totalCount)
+
+	result := &gen.AccountConnection{
+		PageInfo: &paginator.PageInfo,
+	}
+
+	test, err := r.Repository.ListAccounts(ctx, user.ID)
+
+	return result, err
 }
 
 // Mutations

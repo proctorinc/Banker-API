@@ -1,0 +1,17 @@
+type Merchant {
+    id: ID!
+    name: String!
+    sourceId: String
+    ownerId: ID!
+    transactions: [Transaction!]!
+}
+
+type MerchantEdge {
+    cursor: String
+    node: Merchant!
+}
+
+type MerchantConnection {
+    edges: [MerchantEdge!]!
+    pageInfo: PageInfo!
+}

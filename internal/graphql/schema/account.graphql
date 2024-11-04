@@ -1,0 +1,20 @@
+type Account {
+    id: ID!
+    sourceId: String!
+    uploadSource: String!
+    type: String!
+    name: String!
+    routingNumber: String
+    stats: StatsResponse! @isAuthenticated
+    transactions: [Transaction!]!
+}
+
+type AccountEdge {
+    cursor: String
+    node: Account!
+}
+
+type AccountConnection {
+    edges: [AccountEdge!]!
+    pageInfo: PageInfo!
+}

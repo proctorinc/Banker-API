@@ -1,0 +1,19 @@
+type User {
+    id: ID!
+    role: String!
+    username: String!
+    email: String!
+    transactions: [Transaction!]!
+    accounts: [Account!]!
+    merchants: [Merchant!]!
+}
+
+type UserEdge {
+    cursor: String
+    node: User!
+}
+
+type UserConnection {
+    edges: [UserEdge!]!
+    pageInfo: PageInfo!
+}

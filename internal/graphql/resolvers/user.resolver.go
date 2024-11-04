@@ -70,10 +70,6 @@ func (r *queryResolver) User(ctx context.Context, userId uuid.UUID) (*db.User, e
 	return &user, nil
 }
 
-func (r *queryResolver) Users(ctx context.Context) ([]db.User, error) {
-	return r.Repository.ListUsers(ctx)
-}
-
 // Mutations
 
 func (r *mutationResolver) Login(ctx context.Context, data gen.LoginInput) (*db.User, error) {

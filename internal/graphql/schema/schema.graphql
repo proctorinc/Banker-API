@@ -4,58 +4,11 @@ scalar Upload
 directive @isAuthenticated on FIELD_DEFINITION
 directive @isAdmin on FIELD_DEFINITION
 
-type User {
-    id: ID!
-    role: String!
-    username: String!
-    email: String!
-    transactions: [Transaction!]!
-    accounts: [Account!]!
-    merchants: [Merchant!]!
-}
-
-type Account {
-    id: ID!
-    sourceId: String!
-    uploadSource: String!
-    type: String!
-    name: String!
-    routingNumber: String
-    stats: StatsResponse! @isAuthenticated
-    transactions: [Transaction!]!
-}
-
-type Transaction {
-    id: ID!
-    sourceId: String!
-    uploadSource: String!
-    amount: Float!
-    payeeId: String
-    payee: String
-    payeeFull: String
-    isoCurrencyCode: String!
-    date: Date!
-    description: String!
-    type: String!
-    checkNumber: String
-    updated: Date!
-    merchant: Merchant!
-}
-
-type Merchant {
-    id: ID!
-    name: String!
-    sourceId: String
-    ownerId: ID!
-    transactions: [Transaction!]!
-}
-
 type Query {
     user(id: ID!): User @isAdmin
-    users: [User!]! @isAdmin
     me: User @isAuthenticated
     account(id: ID!): Account @isAuthenticated
-    accounts: [Account!]! @isAuthenticated
+    accounts(page: PageArgs): AccountConnection! @isAuthenticated
     transaction(id: ID!): Transaction @isAuthenticated
     transactions: [Transaction!]! @isAuthenticated
     merchant(id: ID!): Merchant @isAuthenticated

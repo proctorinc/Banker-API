@@ -8,9 +8,6 @@ WHERE id = $1;
 SELECT * FROM users
 WHERE email = $1;
 
--- name: ListUsers :many
-SELECT * FROM users;
-
 -- name: CreateUser :one
 INSERT INTO users (username, email, passwordHash)
 VALUES ($1, $2, $3)

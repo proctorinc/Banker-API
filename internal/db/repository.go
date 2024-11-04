@@ -13,7 +13,6 @@ type Repository interface {
 	// Users
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
-	ListUsers(ctx context.Context) ([]User, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteUser(ctx context.Context, id uuid.UUID) (User, error)
 
