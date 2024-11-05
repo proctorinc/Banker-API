@@ -19,7 +19,11 @@ func (r *userResolver) Role(ctx context.Context, user *db.User) (string, error) 
 }
 
 func (r *userResolver) Accounts(ctx context.Context, user *db.User) ([]db.Account, error) {
-	transactions, err := r.Repository.ListAccounts(ctx, user.ID)
+	transactions, err := r.Repository.ListAccounts(ctx, db.ListAccountsParams{
+		Ownerid: user.ID,
+		Limit:   10,
+		Start:   10,
+	})
 
 	if err != nil {
 		return nil, err
@@ -29,23 +33,15 @@ func (r *userResolver) Accounts(ctx context.Context, user *db.User) ([]db.Accoun
 }
 
 func (r *userResolver) Transactions(ctx context.Context, user *db.User) ([]db.Transaction, error) {
-	transactions, err := r.Repository.ListTransactions(ctx, user.ID)
+	// TODO: Implement dataloader
 
-	if err != nil {
-		return nil, err
-	}
-
-	return transactions, nil
+	return []db.Transaction{}, nil
 }
 
 func (r *userResolver) Merchants(ctx context.Context, user *db.User) ([]db.Merchant, error) {
-	transactions, err := r.Repository.ListMerchants(ctx, user.ID)
+	// TODO: Implement dataloader
 
-	if err != nil {
-		return nil, err
-	}
-
-	return transactions, nil
+	return []db.Merchant{}, nil
 }
 
 // Queries

@@ -5,7 +5,6 @@ import (
 	"github.com/proctorinc/banker/internal/dataloaders"
 	"github.com/proctorinc/banker/internal/db"
 	gen "github.com/proctorinc/banker/internal/graphql/generated"
-	"github.com/proctorinc/banker/internal/graphql/paging"
 )
 
 type Resolver struct {
@@ -49,6 +48,6 @@ func (r *Resolver) Merchant() gen.MerchantResolver {
 	return &merchantResolver{r}
 }
 
-func (r *Resolver) PageInfo() paging.PageInfoResolver {
+func (r *Resolver) PageInfo() gen.PageInfoResolver {
 	return &pageInfoResolver{r}
 }

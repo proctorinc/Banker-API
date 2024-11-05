@@ -2,10 +2,13 @@ package resolvers
 
 import (
 	"context"
+	"math"
 
 	"github.com/google/uuid"
 	"github.com/proctorinc/banker/internal/auth"
 	"github.com/proctorinc/banker/internal/db"
+	gen "github.com/proctorinc/banker/internal/graphql/generated"
+	"github.com/proctorinc/banker/internal/graphql/paging"
 )
 
 func (r *merchantResolver) ID(ctx context.Context, merchant *db.Merchant) (uuid.UUID, error) {
@@ -51,8 +54,41 @@ func (r *queryResolver) Merchant(ctx context.Context, merchantId uuid.UUID) (*db
 	return &merchant, nil
 }
 
-func (r *queryResolver) Merchants(ctx context.Context) ([]db.Merchant, error) {
+func (r *queryResolver) Merchants(ctx context.Context, page *paging.PageArgs) (*gen.MerchantConnection, error) {
 	user := auth.GetCurrentUser(ctx)
 
-	return r.Repository.ListMerchants(ctx, user.ID)
+	totalCount, err := r.Repository.ListMerchantsCount(ctx, user.ID)
+
+	if err != nil {
+		return &gen.MerchantConnection{
+			PageInfo: paging.NewEmptyPageInfo(),
+		}, err
+	}
+
+	var limit float64 = float64(totalCount)
+
+	if page != nil && page.First != nil {
+		limit = math.Min(float64(*page.First), limit)
+	}
+
+	paginator := paging.NewOffsetPaginator(page, totalCount)
+
+	result := &gen.MerchantConnection{
+		PageInfo: &paginator.PageInfo,
+	}
+
+	merchants, err := r.Repository.ListMerchants(ctx, db.ListMerchantsParams{
+		Ownerid: user.ID,
+		Limit:   int32(math.Min(limit, paging.MAX_PAGE_SIZE)),
+		Start:   int32(paginator.Offset),
+	})
+
+	for i, row := range merchants {
+		result.Edges = append(result.Edges, gen.MerchantEdge{
+			Cursor: paging.EncodeOffsetCursor(paginator.Offset + i + 1),
+			Node:   &row,
+		})
+	}
+
+	return result, err
 }

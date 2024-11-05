@@ -5,8 +5,7 @@ type Account {
     type: String!
     name: String!
     routingNumber: String
-    stats: StatsResponse! @isAuthenticated
-    transactions: [Transaction!]!
+    transactions(page: PageArgs): TransactionConnection!
 }
 
 type AccountEdge {

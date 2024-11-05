@@ -10,9 +10,9 @@ type Query {
     account(id: ID!): Account @isAuthenticated
     accounts(page: PageArgs): AccountConnection! @isAuthenticated
     transaction(id: ID!): Transaction @isAuthenticated
-    transactions: [Transaction!]! @isAuthenticated
+    transactions(page: PageArgs): TransactionConnection! @isAuthenticated
     merchant(id: ID!): Merchant @isAuthenticated
-    merchants: [Merchant!]! @isAuthenticated
+    merchants(page: PageArgs): MerchantConnection! @isAuthenticated
     stats(input: StatsInput!): StatsResponse! @isAuthenticated
 }
 

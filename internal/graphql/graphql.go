@@ -2,6 +2,7 @@ package graphql
 
 import (
 	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/gin-gonic/gin"
@@ -22,12 +23,16 @@ func GraphqlHandler(repo db.Repository, loaders dataloaders.Retriever) gin.Handl
 		},
 	}
 
+	// Add GraphQL directives
 	config.Directives.IsAuthenticated = directives.IsAuthenticated
 	config.Directives.IsAdmin = directives.IsAdmin
 
 	handler := handler.NewDefaultServer(
 		gen.NewExecutableSchema(config),
 	)
+
+	// Limit queries to 5 levels of complexity
+	handler.Use(extension.FixedComplexityLimit(50))
 
 	handler.AddTransport(transport.MultipartForm{
 		MaxUploadSize: 5 * 1_000_000, // 5 MB max

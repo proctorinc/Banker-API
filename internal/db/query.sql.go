@@ -517,10 +517,17 @@ const listAccounts = `-- name: ListAccounts :many
 SELECT id, sourceid, uploadsource, type, name, routingnumber, updated, ownerid FROM accounts AS a
 WHERE ownerId = $1
 ORDER BY a.name
+LIMIT $2 OFFSET $3
 `
 
-func (q *Queries) ListAccounts(ctx context.Context, ownerid uuid.UUID) ([]Account, error) {
-	rows, err := q.db.QueryContext(ctx, listAccounts, ownerid)
+type ListAccountsParams struct {
+	Ownerid uuid.UUID
+	Limit   int32
+	Start   int32
+}
+
+func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]Account, error) {
+	rows, err := q.db.QueryContext(ctx, listAccounts, arg.Ownerid, arg.Limit, arg.Start)
 	if err != nil {
 		return nil, err
 	}
@@ -549,6 +556,18 @@ func (q *Queries) ListAccounts(ctx context.Context, ownerid uuid.UUID) ([]Accoun
 		return nil, err
 	}
 	return items, nil
+}
+
+const listAccountsCount = `-- name: ListAccountsCount :one
+SELECT count(id) FROM accounts AS a
+WHERE ownerId = $1
+`
+
+func (q *Queries) ListAccountsCount(ctx context.Context, ownerid uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, listAccountsCount, ownerid)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const listIncomeTransactions = `-- name: ListIncomeTransactions :many
@@ -607,10 +626,17 @@ const listMerchants = `-- name: ListMerchants :many
 SELECT id, name, sourceid, ownerid FROM merchants
 WHERE ownerId = $1
 ORDER BY name
+LIMIT $2 OFFSET $3
 `
 
-func (q *Queries) ListMerchants(ctx context.Context, ownerid uuid.UUID) ([]Merchant, error) {
-	rows, err := q.db.QueryContext(ctx, listMerchants, ownerid)
+type ListMerchantsParams struct {
+	Ownerid uuid.UUID
+	Limit   int32
+	Start   int32
+}
+
+func (q *Queries) ListMerchants(ctx context.Context, arg ListMerchantsParams) ([]Merchant, error) {
+	rows, err := q.db.QueryContext(ctx, listMerchants, arg.Ownerid, arg.Limit, arg.Start)
 	if err != nil {
 		return nil, err
 	}
@@ -635,6 +661,18 @@ func (q *Queries) ListMerchants(ctx context.Context, ownerid uuid.UUID) ([]Merch
 		return nil, err
 	}
 	return items, nil
+}
+
+const listMerchantsCount = `-- name: ListMerchantsCount :one
+SELECT count(id) FROM merchants
+WHERE ownerId = $1
+`
+
+func (q *Queries) ListMerchantsCount(ctx context.Context, ownerid uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, listMerchantsCount, ownerid)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const listSpendingTransactions = `-- name: ListSpendingTransactions :many
@@ -693,10 +731,17 @@ const listTransactions = `-- name: ListTransactions :many
 SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid FROM transactions
 WHERE ownerId = $1
 ORDER BY date
+LIMIT $2 OFFSET $3
 `
 
-func (q *Queries) ListTransactions(ctx context.Context, ownerid uuid.UUID) ([]Transaction, error) {
-	rows, err := q.db.QueryContext(ctx, listTransactions, ownerid)
+type ListTransactionsParams struct {
+	Ownerid uuid.UUID
+	Limit   int32
+	Start   int32
+}
+
+func (q *Queries) ListTransactions(ctx context.Context, arg ListTransactionsParams) ([]Transaction, error) {
+	rows, err := q.db.QueryContext(ctx, listTransactions, arg.Ownerid, arg.Limit, arg.Start)
 	if err != nil {
 		return nil, err
 	}
@@ -835,6 +880,18 @@ func (q *Queries) ListTransactionsByMerchantId(ctx context.Context, arg ListTran
 		return nil, err
 	}
 	return items, nil
+}
+
+const listTransactionsCount = `-- name: ListTransactionsCount :one
+SELECT count(id) FROM transactions AS a
+WHERE ownerId = $1
+`
+
+func (q *Queries) ListTransactionsCount(ctx context.Context, ownerid uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, listTransactionsCount, ownerid)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const updateTransaction = `-- name: UpdateTransaction :one

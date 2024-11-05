@@ -2,11 +2,14 @@ package resolvers
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/proctorinc/banker/internal/auth"
 	"github.com/proctorinc/banker/internal/db"
+	gen "github.com/proctorinc/banker/internal/graphql/generated"
+	"github.com/proctorinc/banker/internal/graphql/paging"
 	"github.com/proctorinc/banker/internal/graphql/utils"
 )
 
@@ -120,10 +123,43 @@ func (r *queryResolver) Transaction(ctx context.Context, transactionId uuid.UUID
 	return &transaction, nil
 }
 
-func (r *queryResolver) Transactions(ctx context.Context) ([]db.Transaction, error) {
+func (r *queryResolver) Transactions(ctx context.Context, page *paging.PageArgs) (*gen.TransactionConnection, error) {
 	user := auth.GetCurrentUser(ctx)
 
-	return r.Repository.ListTransactions(ctx, user.ID)
+	totalCount, err := r.Repository.ListTransactionsCount(ctx, user.ID)
+
+	if err != nil {
+		return &gen.TransactionConnection{
+			PageInfo: paging.NewEmptyPageInfo(),
+		}, err
+	}
+
+	var limit float64 = float64(totalCount)
+
+	if page != nil && page.First != nil {
+		limit = math.Min(float64(*page.First), limit)
+	}
+
+	paginator := paging.NewOffsetPaginator(page, totalCount)
+
+	result := &gen.TransactionConnection{
+		PageInfo: &paginator.PageInfo,
+	}
+
+	transactions, err := r.Repository.ListTransactions(ctx, db.ListTransactionsParams{
+		Ownerid: user.ID,
+		Limit:   int32(math.Min(limit, paging.MAX_PAGE_SIZE)),
+		Start:   int32(paginator.Offset),
+	})
+
+	for i, row := range transactions {
+		result.Edges = append(result.Edges, gen.TransactionEdge{
+			Cursor: paging.EncodeOffsetCursor(paginator.Offset + i + 1),
+			Node:   &row,
+		})
+	}
+
+	return result, err
 }
 
 // Mutations

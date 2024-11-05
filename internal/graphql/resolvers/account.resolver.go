@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"regexp"
 	"strings"
 	"time"
@@ -56,71 +57,6 @@ func (r *accountResolver) Transactions(ctx context.Context, account *db.Account)
 	return r.DataLoaders.Retrieve(ctx).TransactionsByAccountId.Load(account.ID.String())
 }
 
-func (r *accountResolver) Stats(ctx context.Context, account *db.Account) (*gen.StatsResponse, error) {
-	user := auth.GetCurrentUser(ctx)
-	incomeTotal, err := r.Repository.GetAccountIncome(ctx, db.GetAccountIncomeParams{
-		Ownerid:   user.ID,
-		Accountid: account.ID,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	incomeTransactions, err := r.Repository.ListAccountIncomeTransactions(ctx, db.ListAccountIncomeTransactionsParams{
-		Ownerid:   user.ID,
-		Accountid: account.ID,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	amount := int32(incomeTotal.(int64))
-
-	income := gen.IncomeStats{
-		Total:        utils.FormatCurrencyFloat64(amount),
-		Transactions: incomeTransactions,
-	}
-
-	spendingTotal, err := r.Repository.GetAccountSpending(ctx, db.GetAccountSpendingParams{
-		Ownerid:   user.ID,
-		Accountid: account.ID,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	spendingTransactions, err := r.Repository.ListAccountSpendingTransactions(ctx, db.ListAccountSpendingTransactionsParams{
-		Ownerid:   user.ID,
-		Accountid: account.ID,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	spending := gen.SpendingStats{
-		Total:        utils.FormatCurrencyFloat64(int32(spendingTotal.(int64))),
-		Transactions: spendingTransactions,
-	}
-
-	total := int32(incomeTotal.(int64)) + int32(spendingTotal.(int64))
-
-	net := gen.NetStats{
-		Total: utils.FormatCurrencyFloat64(total),
-	}
-
-	response := &gen.StatsResponse{
-		Spending: &spending,
-		Income:   &income,
-		Net:      &net,
-	}
-
-	return response, nil
-}
-
 // Queries
 
 func (r *queryResolver) Account(ctx context.Context, accountId uuid.UUID) (*db.Account, error) {
@@ -140,13 +76,38 @@ func (r *queryResolver) Account(ctx context.Context, accountId uuid.UUID) (*db.A
 func (r *queryResolver) Accounts(ctx context.Context, page *paging.PageArgs) (*gen.AccountConnection, error) {
 	user := auth.GetCurrentUser(ctx)
 
+	totalCount, err := r.Repository.ListAccountsCount(ctx, user.ID)
+
+	if err != nil {
+		return &gen.AccountConnection{
+			PageInfo: paging.NewEmptyPageInfo(),
+		}, err
+	}
+
+	var limit float64 = float64(totalCount)
+
+	if page != nil && page.First != nil {
+		limit = math.Min(float64(*page.First), limit)
+	}
+
 	paginator := paging.NewOffsetPaginator(page, totalCount)
 
 	result := &gen.AccountConnection{
 		PageInfo: &paginator.PageInfo,
 	}
 
-	test, err := r.Repository.ListAccounts(ctx, user.ID)
+	accounts, err := r.Repository.ListAccounts(ctx, db.ListAccountsParams{
+		Ownerid: user.ID,
+		Limit:   int32(math.Min(limit, paging.MAX_PAGE_SIZE)),
+		Start:   int32(paginator.Offset),
+	})
+
+	for i, row := range accounts {
+		result.Edges = append(result.Edges, gen.AccountEdge{
+			Cursor: paging.EncodeOffsetCursor(paginator.Offset + i + 1),
+			Node:   &row,
+		})
+	}
 
 	return result, err
 }

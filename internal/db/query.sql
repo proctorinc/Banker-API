@@ -34,7 +34,12 @@ LIMIT 1;
 -- name: ListAccounts :many
 SELECT * FROM accounts AS a
 WHERE ownerId = $1
-ORDER BY a.name;
+ORDER BY a.name
+LIMIT $2 OFFSET @start;
+
+-- name: ListAccountsCount :one
+SELECT count(id) FROM accounts AS a
+WHERE ownerId = $1;
 
 -- name: UpsertAccount :one
 INSERT INTO accounts (
@@ -66,7 +71,12 @@ LIMIT 1;
 -- name: ListTransactions :many
 SELECT * FROM transactions
 WHERE ownerId = $1
-ORDER BY date;
+ORDER BY date
+LIMIT $2 OFFSET @start;
+
+-- name: ListTransactionsCount :one
+SELECT count(id) FROM transactions AS a
+WHERE ownerId = $1;
 
 -- name: ListTransactionsByAccountIds :many
 SELECT t.* FROM transactions AS t, accounts AS a
@@ -165,7 +175,12 @@ WHERE sourceId = $1;
 -- name: ListMerchants :many
 SELECT * FROM merchants
 WHERE ownerId = $1
-ORDER BY name;
+ORDER BY name
+LIMIT $2 OFFSET @start;
+
+-- name: ListMerchantsCount :one
+SELECT count(id) FROM merchants
+WHERE ownerId = $1;
 
 -- name: CreateMerchant :one
 INSERT INTO merchants (

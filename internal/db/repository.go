@@ -18,14 +18,16 @@ type Repository interface {
 
 	// Accounts
 	GetAccount(ctx context.Context, arg GetAccountParams) (Account, error)
-	ListAccounts(ctx context.Context, ownerid uuid.UUID) ([]Account, error)
+	ListAccounts(ctx context.Context, arg ListAccountsParams) ([]Account, error)
+	ListAccountsCount(ctx context.Context, ownerid uuid.UUID) (int64, error)
 	UpsertAccount(ctx context.Context, arg UpsertAccountParams) (Account, error)
 	GetAccountSpending(ctx context.Context, arg GetAccountSpendingParams) (interface{}, error)
 	GetAccountIncome(ctx context.Context, arg GetAccountIncomeParams) (interface{}, error)
 
 	// Transactions
 	GetTransaction(ctx context.Context, arg GetTransactionParams) (Transaction, error)
-	ListTransactions(ctx context.Context, ownerid uuid.UUID) ([]Transaction, error)
+	ListTransactions(ctx context.Context, arg ListTransactionsParams) ([]Transaction, error)
+	ListTransactionsCount(ctx context.Context, ownerid uuid.UUID) (int64, error)
 	ListTransactionsByAccountIds(ctx context.Context, arg ListTransactionsByAccountIdsParams) ([]Transaction, error)
 	ListTransactionsByMerchantId(ctx context.Context, arg ListTransactionsByMerchantIdParams) ([]Transaction, error)
 	ListSpendingTransactions(ctx context.Context, arg ListSpendingTransactionsParams) ([]Transaction, error)
@@ -42,7 +44,8 @@ type Repository interface {
 	GetMerchantByName(ctx context.Context, name string) (Merchant, error)
 	GetMerchantBySourceId(ctx context.Context, sourceId sql.NullString) (Merchant, error)
 	GetMerchantByKey(ctx context.Context, arg GetMerchantByKeyParams) (Merchant, error)
-	ListMerchants(ctx context.Context, ownerid uuid.UUID) ([]Merchant, error)
+	ListMerchants(ctx context.Context, arg ListMerchantsParams) ([]Merchant, error)
+	ListMerchantsCount(ctx context.Context, ownerid uuid.UUID) (int64, error)
 	CreateMerchant(ctx context.Context, arg CreateMerchantParams) (Merchant, error)
 	LinkMerchant(ctx context.Context, arg LinkMerchantParams) (*Merchant, error)
 

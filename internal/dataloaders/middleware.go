@@ -15,7 +15,6 @@ func Middleware(repo db.Repository) func(gin.HandlerFunc) gin.HandlerFunc {
 			newCtx := context.WithValue(ctx.Request.Context(), key, loaders)
 			ctx.Request = ctx.Request.WithContext(newCtx)
 			ctx.Next()
-
 			next(ctx)
 		}
 	}

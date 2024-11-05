@@ -1,5 +1,7 @@
 package paging
 
+const MAX_PAGE_SIZE = 50
+
 // PageArgs is used as the query inputs
 type PageArgs struct {
 	First      *int    `json:"first,omitempty"`
