@@ -53,8 +53,42 @@ func (r *accountResolver) RoutingNumber(ctx context.Context, account *db.Account
 	return nil, nil
 }
 
-func (r *accountResolver) Transactions(ctx context.Context, account *db.Account) ([]db.Transaction, error) {
-	return r.DataLoaders.Retrieve(ctx).TransactionsByAccountId.Load(account.ID.String())
+func (r *accountResolver) Transactions(ctx context.Context, account *db.Account, page *paging.PageArgs) (*gen.TransactionConnection, error) {
+	totalCount, err := r.DataLoaders.Retrieve(ctx).CountTransactionsByAccountId.Load(account.ID.String())
+
+	log.Println("totalcount:", totalCount)
+
+	if err != nil {
+		return &gen.TransactionConnection{
+			PageInfo: paging.NewEmptyPageInfo(),
+		}, err
+	}
+
+	var limit float64 = float64(totalCount)
+
+	if page != nil && page.First != nil {
+		limit = math.Min(float64(*page.First), limit)
+	}
+
+	paginator := paging.NewOffsetPaginator(page, totalCount)
+
+	result := &gen.TransactionConnection{
+		PageInfo: &paginator.PageInfo,
+	}
+
+	pageLimit := int32(math.Min(limit, paging.MAX_PAGE_SIZE))
+	pageStart := int32(paginator.Offset)
+
+	transactions, err := r.DataLoaders.Retrieve(ctx).TransactionsByAccountId(pageLimit, pageStart).Load(account.ID.String())
+
+	for i, row := range transactions {
+		result.Edges = append(result.Edges, gen.TransactionEdge{
+			Cursor: paging.EncodeOffsetCursor(paginator.Offset + i + 1),
+			Node:   &row,
+		})
+	}
+
+	return result, err
 }
 
 // Queries
@@ -76,7 +110,7 @@ func (r *queryResolver) Account(ctx context.Context, accountId uuid.UUID) (*db.A
 func (r *queryResolver) Accounts(ctx context.Context, page *paging.PageArgs) (*gen.AccountConnection, error) {
 	user := auth.GetCurrentUser(ctx)
 
-	totalCount, err := r.Repository.ListAccountsCount(ctx, user.ID)
+	totalCount, err := r.Repository.CountAccounts(ctx, user.ID)
 
 	if err != nil {
 		return &gen.AccountConnection{

@@ -60,7 +60,7 @@ type ComplexityRoot struct {
 		Name          func(childComplexity int) int
 		RoutingNumber func(childComplexity int) int
 		Sourceid      func(childComplexity int) int
-		Transactions  func(childComplexity int) int
+		Transactions  func(childComplexity int, page *paging.PageArgs) int
 		Type          func(childComplexity int) int
 		UploadSource  func(childComplexity int) int
 	}
@@ -206,7 +206,7 @@ type AccountResolver interface {
 	Type(ctx context.Context, obj *db.Account) (string, error)
 
 	RoutingNumber(ctx context.Context, obj *db.Account) (*string, error)
-	Transactions(ctx context.Context, obj *db.Account) ([]db.Transaction, error)
+	Transactions(ctx context.Context, obj *db.Account, page *paging.PageArgs) (*TransactionConnection, error)
 }
 type MerchantResolver interface {
 	SourceID(ctx context.Context, obj *db.Merchant) (*string, error)
@@ -313,7 +313,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		return e.complexity.Account.Transactions(childComplexity), true
+		args, err := ec.field_Account_transactions_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Account.Transactions(childComplexity, args["page"].(*paging.PageArgs)), true
 
 	case "Account.type":
 		if e.complexity.Account.Type == nil {
@@ -1030,7 +1035,7 @@ var sources = []*ast.Source{
     type: String!
     name: String!
     routingNumber: String
-    transactions: [Transaction!]!
+    transactions(page: PageArgs): TransactionConnection!
 }
 
 type AccountEdge {
@@ -1227,6 +1232,21 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 // endregion ************************** generated!.gotpl **************************
 
 // region    ***************************** args.gotpl *****************************
+
+func (ec *executionContext) field_Account_transactions_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 *paging.PageArgs
+	if tmp, ok := rawArgs["page"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("page"))
+		arg0, err = ec.unmarshalOPageArgs2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋpagingᚐPageArgs(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["page"] = arg0
+	return args, nil
+}
 
 func (ec *executionContext) field_Mutation_chaseOFXUpload_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
@@ -1736,7 +1756,7 @@ func (ec *executionContext) _Account_transactions(ctx context.Context, field gra
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Account().Transactions(rctx, obj)
+		return ec.resolvers.Account().Transactions(rctx, obj, fc.Args["page"].(*paging.PageArgs))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1748,12 +1768,12 @@ func (ec *executionContext) _Account_transactions(ctx context.Context, field gra
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]db.Transaction)
+	res := resTmp.(*TransactionConnection)
 	fc.Result = res
-	return ec.marshalNTransaction2ᚕgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐTransactionᚄ(ctx, field.Selections, res)
+	return ec.marshalNTransactionConnection2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐTransactionConnection(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Account_transactions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Account_transactions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Account",
 		Field:      field,
@@ -1761,37 +1781,24 @@ func (ec *executionContext) fieldContext_Account_transactions(_ context.Context,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_Transaction_id(ctx, field)
-			case "sourceId":
-				return ec.fieldContext_Transaction_sourceId(ctx, field)
-			case "uploadSource":
-				return ec.fieldContext_Transaction_uploadSource(ctx, field)
-			case "amount":
-				return ec.fieldContext_Transaction_amount(ctx, field)
-			case "payeeId":
-				return ec.fieldContext_Transaction_payeeId(ctx, field)
-			case "payee":
-				return ec.fieldContext_Transaction_payee(ctx, field)
-			case "payeeFull":
-				return ec.fieldContext_Transaction_payeeFull(ctx, field)
-			case "isoCurrencyCode":
-				return ec.fieldContext_Transaction_isoCurrencyCode(ctx, field)
-			case "date":
-				return ec.fieldContext_Transaction_date(ctx, field)
-			case "description":
-				return ec.fieldContext_Transaction_description(ctx, field)
-			case "type":
-				return ec.fieldContext_Transaction_type(ctx, field)
-			case "checkNumber":
-				return ec.fieldContext_Transaction_checkNumber(ctx, field)
-			case "updated":
-				return ec.fieldContext_Transaction_updated(ctx, field)
-			case "merchant":
-				return ec.fieldContext_Transaction_merchant(ctx, field)
+			case "edges":
+				return ec.fieldContext_TransactionConnection_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_TransactionConnection_pageInfo(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type TransactionConnection", field.Name)
 		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Account_transactions_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }

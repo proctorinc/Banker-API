@@ -37,7 +37,7 @@ WHERE ownerId = $1
 ORDER BY a.name
 LIMIT $2 OFFSET @start;
 
--- name: ListAccountsCount :one
+-- name: CountAccounts :one
 SELECT count(id) FROM accounts AS a
 WHERE ownerId = $1;
 
@@ -74,14 +74,20 @@ WHERE ownerId = $1
 ORDER BY date
 LIMIT $2 OFFSET @start;
 
--- name: ListTransactionsCount :one
+-- name: CountTransactions :one
 SELECT count(id) FROM transactions AS a
 WHERE ownerId = $1;
 
 -- name: ListTransactionsByAccountIds :many
 SELECT t.* FROM transactions AS t, accounts AS a
-WHERE t.ownerId = $1 AND agents.id = ANY($2::varchar[])
-ORDER BY date;
+WHERE t.accountid = a.id AND a.id::varchar = ANY(@accountIds::varchar[])
+ORDER BY date
+LIMIT $1 OFFSET @start;
+
+-- name: CountTransactionsByAccountIds :many
+SELECT count(t.id), a.id as accountId FROM transactions AS t, accounts AS a
+WHERE t.accountid = a.id AND a.id::varchar = ANY(@accountIds::varchar[])
+GROUP BY a.id;
 
 -- name: ListTransactionsByMerchantId :many
 SELECT * FROM transactions
@@ -178,7 +184,7 @@ WHERE ownerId = $1
 ORDER BY name
 LIMIT $2 OFFSET @start;
 
--- name: ListMerchantsCount :one
+-- name: CountMerchants :one
 SELECT count(id) FROM merchants
 WHERE ownerId = $1;
 

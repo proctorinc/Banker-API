@@ -14,6 +14,76 @@ import (
 	"github.com/lib/pq"
 )
 
+const countAccounts = `-- name: CountAccounts :one
+SELECT count(id) FROM accounts AS a
+WHERE ownerId = $1
+`
+
+func (q *Queries) CountAccounts(ctx context.Context, ownerid uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAccounts, ownerid)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countMerchants = `-- name: CountMerchants :one
+SELECT count(id) FROM merchants
+WHERE ownerId = $1
+`
+
+func (q *Queries) CountMerchants(ctx context.Context, ownerid uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countMerchants, ownerid)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countTransactions = `-- name: CountTransactions :one
+SELECT count(id) FROM transactions AS a
+WHERE ownerId = $1
+`
+
+func (q *Queries) CountTransactions(ctx context.Context, ownerid uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countTransactions, ownerid)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countTransactionsByAccountIds = `-- name: CountTransactionsByAccountIds :many
+SELECT count(t.id), a.id as accountId FROM transactions AS t, accounts AS a
+WHERE t.accountid = a.id AND a.id::varchar = ANY($1::varchar[])
+GROUP BY a.id
+`
+
+type CountTransactionsByAccountIdsRow struct {
+	Count     int64
+	Accountid uuid.UUID
+}
+
+func (q *Queries) CountTransactionsByAccountIds(ctx context.Context, accountids []string) ([]CountTransactionsByAccountIdsRow, error) {
+	rows, err := q.db.QueryContext(ctx, countTransactionsByAccountIds, pq.Array(accountids))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountTransactionsByAccountIdsRow
+	for rows.Next() {
+		var i CountTransactionsByAccountIdsRow
+		if err := rows.Scan(&i.Count, &i.Accountid); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createMerchant = `-- name: CreateMerchant :one
 INSERT INTO merchants (
     name,
@@ -558,18 +628,6 @@ func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]A
 	return items, nil
 }
 
-const listAccountsCount = `-- name: ListAccountsCount :one
-SELECT count(id) FROM accounts AS a
-WHERE ownerId = $1
-`
-
-func (q *Queries) ListAccountsCount(ctx context.Context, ownerid uuid.UUID) (int64, error) {
-	row := q.db.QueryRowContext(ctx, listAccountsCount, ownerid)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const listIncomeTransactions = `-- name: ListIncomeTransactions :many
 SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid FROM transactions
 WHERE ownerId = $1 AND amount >= 0 AND date BETWEEN $2 AND $3
@@ -661,18 +719,6 @@ func (q *Queries) ListMerchants(ctx context.Context, arg ListMerchantsParams) ([
 		return nil, err
 	}
 	return items, nil
-}
-
-const listMerchantsCount = `-- name: ListMerchantsCount :one
-SELECT count(id) FROM merchants
-WHERE ownerId = $1
-`
-
-func (q *Queries) ListMerchantsCount(ctx context.Context, ownerid uuid.UUID) (int64, error) {
-	row := q.db.QueryRowContext(ctx, listMerchantsCount, ownerid)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
 }
 
 const listSpendingTransactions = `-- name: ListSpendingTransactions :many
@@ -782,17 +828,19 @@ func (q *Queries) ListTransactions(ctx context.Context, arg ListTransactionsPara
 
 const listTransactionsByAccountIds = `-- name: ListTransactionsByAccountIds :many
 SELECT t.id, t.sourceid, t.uploadsource, t.amount, t.payeeid, t.payee, t.payeefull, t.isocurrencycode, t.date, t.description, t.type, t.checknumber, t.updated, t.merchantid, t.ownerid, t.accountid FROM transactions AS t, accounts AS a
-WHERE t.ownerId = $1 AND agents.id = ANY($2::varchar[])
+WHERE t.accountid = a.id AND a.id::varchar = ANY($2::varchar[])
 ORDER BY date
+LIMIT $1 OFFSET $3
 `
 
 type ListTransactionsByAccountIdsParams struct {
-	Ownerid uuid.UUID
-	Column2 []string
+	Limit      int32
+	Accountids []string
+	Start      int32
 }
 
 func (q *Queries) ListTransactionsByAccountIds(ctx context.Context, arg ListTransactionsByAccountIdsParams) ([]Transaction, error) {
-	rows, err := q.db.QueryContext(ctx, listTransactionsByAccountIds, arg.Ownerid, pq.Array(arg.Column2))
+	rows, err := q.db.QueryContext(ctx, listTransactionsByAccountIds, arg.Limit, pq.Array(arg.Accountids), arg.Start)
 	if err != nil {
 		return nil, err
 	}
@@ -880,18 +928,6 @@ func (q *Queries) ListTransactionsByMerchantId(ctx context.Context, arg ListTran
 		return nil, err
 	}
 	return items, nil
-}
-
-const listTransactionsCount = `-- name: ListTransactionsCount :one
-SELECT count(id) FROM transactions AS a
-WHERE ownerId = $1
-`
-
-func (q *Queries) ListTransactionsCount(ctx context.Context, ownerid uuid.UUID) (int64, error) {
-	row := q.db.QueryRowContext(ctx, listTransactionsCount, ownerid)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
 }
 
 const updateTransaction = `-- name: UpdateTransaction :one

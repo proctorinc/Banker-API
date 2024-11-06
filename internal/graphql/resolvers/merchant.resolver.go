@@ -57,7 +57,7 @@ func (r *queryResolver) Merchant(ctx context.Context, merchantId uuid.UUID) (*db
 func (r *queryResolver) Merchants(ctx context.Context, page *paging.PageArgs) (*gen.MerchantConnection, error) {
 	user := auth.GetCurrentUser(ctx)
 
-	totalCount, err := r.Repository.ListMerchantsCount(ctx, user.ID)
+	totalCount, err := r.Repository.CountMerchants(ctx, user.ID)
 
 	if err != nil {
 		return &gen.MerchantConnection{

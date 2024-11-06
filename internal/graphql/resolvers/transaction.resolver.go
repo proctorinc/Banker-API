@@ -126,7 +126,7 @@ func (r *queryResolver) Transaction(ctx context.Context, transactionId uuid.UUID
 func (r *queryResolver) Transactions(ctx context.Context, page *paging.PageArgs) (*gen.TransactionConnection, error) {
 	user := auth.GetCurrentUser(ctx)
 
-	totalCount, err := r.Repository.ListTransactionsCount(ctx, user.ID)
+	totalCount, err := r.Repository.CountTransactions(ctx, user.ID)
 
 	if err != nil {
 		return &gen.TransactionConnection{
