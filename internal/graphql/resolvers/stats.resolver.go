@@ -13,7 +13,6 @@ import (
 
 func (r *queryResolver) Stats(ctx context.Context, filter gen.StatsInput) (*gen.StatsResponse, error) {
 	user := auth.GetCurrentUser(ctx)
-
 	startDate, err := time.Parse(time.RFC3339, filter.StartDate)
 
 	if err != nil {

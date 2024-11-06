@@ -2,7 +2,6 @@ package resolvers
 
 import (
 	"context"
-	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -121,7 +120,6 @@ func (r *queryResolver) Transaction(ctx context.Context, transactionId uuid.UUID
 
 func (r *queryResolver) Transactions(ctx context.Context, page *paging.PageArgs) (*gen.TransactionConnection, error) {
 	user := auth.GetCurrentUser(ctx)
-
 	totalCount, err := r.Repository.CountTransactions(ctx, user.ID)
 
 	if err != nil {
@@ -130,23 +128,16 @@ func (r *queryResolver) Transactions(ctx context.Context, page *paging.PageArgs)
 		}, err
 	}
 
-	var limit float64 = paging.MAX_PAGE_SIZE
-
-	if page != nil && page.First != nil {
-		limit = math.Min(limit, float64(*page.First))
-	}
-
 	paginator := paging.NewOffsetPaginator(page, totalCount)
-
 	result := &gen.TransactionConnection{
 		PageInfo: &paginator.PageInfo,
 	}
-
 	pageStart := int32(paginator.Offset)
+	limit := calculatePageLimit(page)
 
 	transactions, err := r.Repository.ListTransactions(ctx, db.ListTransactionsParams{
 		Ownerid: user.ID,
-		Limit:   int32(limit),
+		Limit:   limit,
 		Start:   pageStart,
 	})
 

@@ -2,7 +2,6 @@ package resolvers
 
 import (
 	"context"
-	"math"
 
 	"github.com/google/uuid"
 	"github.com/proctorinc/banker/internal/auth"
@@ -40,19 +39,12 @@ func (r *merchantResolver) Transactions(ctx context.Context, merchant *db.Mercha
 		}, err
 	}
 
-	var limit float64 = paging.MAX_PAGE_SIZE
-
-	if page != nil && page.First != nil {
-		limit = math.Min(limit, float64(*page.First))
-	}
-
 	paginator := paging.NewOffsetPaginator(page, totalCount)
-
 	result := &gen.TransactionConnection{
 		PageInfo: &paginator.PageInfo,
 	}
-
 	pageStart := int32(paginator.Offset)
+	limit := calculatePageLimit(page)
 
 	transactions, err := r.DataLoaders.Retrieve(ctx).TransactionsByMerchantId(int32(limit), pageStart).Load(merchant.ID.String())
 
@@ -84,7 +76,6 @@ func (r *queryResolver) Merchant(ctx context.Context, merchantId uuid.UUID) (*db
 
 func (r *queryResolver) Merchants(ctx context.Context, page *paging.PageArgs) (*gen.MerchantConnection, error) {
 	user := auth.GetCurrentUser(ctx)
-
 	totalCount, err := r.Repository.CountMerchants(ctx, user.ID)
 
 	if err != nil {
@@ -93,21 +84,15 @@ func (r *queryResolver) Merchants(ctx context.Context, page *paging.PageArgs) (*
 		}, err
 	}
 
-	var limit float64 = paging.MAX_PAGE_SIZE
-
-	if page != nil && page.First != nil {
-		limit = math.Min(limit, float64(*page.First))
-	}
-
 	paginator := paging.NewOffsetPaginator(page, totalCount)
-
 	result := &gen.MerchantConnection{
 		PageInfo: &paginator.PageInfo,
 	}
+	limit := calculatePageLimit(page)
 
 	merchants, err := r.Repository.ListMerchants(ctx, db.ListMerchantsParams{
 		Ownerid: user.ID,
-		Limit:   int32(limit),
+		Limit:   limit,
 		Start:   int32(paginator.Offset),
 	})
 

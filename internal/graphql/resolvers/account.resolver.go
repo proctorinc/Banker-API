@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"regexp"
 	"strings"
 	"time"
@@ -62,21 +61,14 @@ func (r *accountResolver) Transactions(ctx context.Context, account *db.Account,
 		}, err
 	}
 
-	var limit float64 = paging.MAX_PAGE_SIZE
-
-	if page != nil && page.First != nil {
-		limit = math.Min(limit, float64(*page.First))
-	}
-
 	paginator := paging.NewOffsetPaginator(page, totalCount)
-
 	result := &gen.TransactionConnection{
 		PageInfo: &paginator.PageInfo,
 	}
-
 	pageStart := int32(paginator.Offset)
+	limit := calculatePageLimit(page)
 
-	transactions, err := r.DataLoaders.Retrieve(ctx).TransactionsByAccountId(int32(limit), pageStart).Load(account.ID.String())
+	transactions, err := r.DataLoaders.Retrieve(ctx).TransactionsByAccountId(limit, pageStart).Load(account.ID.String())
 
 	for i, row := range transactions {
 		result.Edges = append(result.Edges, gen.TransactionEdge{
@@ -106,7 +98,6 @@ func (r *queryResolver) Account(ctx context.Context, accountId uuid.UUID) (*db.A
 
 func (r *queryResolver) Accounts(ctx context.Context, page *paging.PageArgs) (*gen.AccountConnection, error) {
 	user := auth.GetCurrentUser(ctx)
-
 	totalCount, err := r.Repository.CountAccounts(ctx, user.ID)
 
 	if err != nil {
@@ -115,21 +106,15 @@ func (r *queryResolver) Accounts(ctx context.Context, page *paging.PageArgs) (*g
 		}, err
 	}
 
-	var limit float64 = paging.MAX_PAGE_SIZE
-
-	if page != nil && page.First != nil {
-		limit = math.Min(limit, float64(*page.First))
-	}
-
 	paginator := paging.NewOffsetPaginator(page, totalCount)
-
 	result := &gen.AccountConnection{
 		PageInfo: &paginator.PageInfo,
 	}
+	limit := calculatePageLimit(page)
 
 	accounts, err := r.Repository.ListAccounts(ctx, db.ListAccountsParams{
 		Ownerid: user.ID,
-		Limit:   int32(limit),
+		Limit:   limit,
 		Start:   int32(paginator.Offset),
 	})
 
