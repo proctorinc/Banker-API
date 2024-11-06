@@ -67,7 +67,6 @@ func VerifyJwt(jwtString string) (*JwtToken, error) {
 }
 
 func CreateJWT(userId uuid.UUID) (string, error) {
-	log.Println(time.Now().Add(time.Hour * 24).Format(time.RFC3339))
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": userId.String(),
 		"exp": time.Now().Add(time.Hour * 24).Unix(),

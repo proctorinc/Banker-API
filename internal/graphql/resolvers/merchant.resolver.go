@@ -31,11 +31,39 @@ func (r *merchantResolver) OwnerId(ctx context.Context, merchant *db.Merchant) (
 	return merchant.Ownerid.String(), nil
 }
 
-func (r *merchantResolver) Transactions(ctx context.Context, merchant *db.Merchant) ([]db.Transaction, error) {
-	return r.Repository.ListTransactionsByMerchantId(ctx, db.ListTransactionsByMerchantIdParams{
-		Ownerid:    merchant.Ownerid,
-		Merchantid: merchant.ID,
-	})
+func (r *merchantResolver) Transactions(ctx context.Context, merchant *db.Merchant, page *paging.PageArgs) (*gen.TransactionConnection, error) {
+	totalCount, err := r.DataLoaders.Retrieve(ctx).CountTransactionsByMerchantId.Load(merchant.ID.String())
+
+	if err != nil {
+		return &gen.TransactionConnection{
+			PageInfo: paging.NewEmptyPageInfo(),
+		}, err
+	}
+
+	var limit float64 = paging.MAX_PAGE_SIZE
+
+	if page != nil && page.First != nil {
+		limit = math.Min(limit, float64(*page.First))
+	}
+
+	paginator := paging.NewOffsetPaginator(page, totalCount)
+
+	result := &gen.TransactionConnection{
+		PageInfo: &paginator.PageInfo,
+	}
+
+	pageStart := int32(paginator.Offset)
+
+	transactions, err := r.DataLoaders.Retrieve(ctx).TransactionsByMerchantId(int32(limit), pageStart).Load(merchant.ID.String())
+
+	for i, row := range transactions {
+		result.Edges = append(result.Edges, gen.TransactionEdge{
+			Cursor: paging.EncodeOffsetCursor(paginator.Offset + i + 1),
+			Node:   &row,
+		})
+	}
+
+	return result, err
 }
 
 // Queries
@@ -65,10 +93,10 @@ func (r *queryResolver) Merchants(ctx context.Context, page *paging.PageArgs) (*
 		}, err
 	}
 
-	var limit float64 = float64(totalCount)
+	var limit float64 = paging.MAX_PAGE_SIZE
 
 	if page != nil && page.First != nil {
-		limit = math.Min(float64(*page.First), limit)
+		limit = math.Min(limit, float64(*page.First))
 	}
 
 	paginator := paging.NewOffsetPaginator(page, totalCount)
@@ -79,7 +107,7 @@ func (r *queryResolver) Merchants(ctx context.Context, page *paging.PageArgs) (*
 
 	merchants, err := r.Repository.ListMerchants(ctx, db.ListMerchantsParams{
 		Ownerid: user.ID,
-		Limit:   int32(math.Min(limit, paging.MAX_PAGE_SIZE)),
+		Limit:   int32(limit),
 		Start:   int32(paginator.Offset),
 	})
 

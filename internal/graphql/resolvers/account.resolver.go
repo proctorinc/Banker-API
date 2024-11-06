@@ -56,18 +56,16 @@ func (r *accountResolver) RoutingNumber(ctx context.Context, account *db.Account
 func (r *accountResolver) Transactions(ctx context.Context, account *db.Account, page *paging.PageArgs) (*gen.TransactionConnection, error) {
 	totalCount, err := r.DataLoaders.Retrieve(ctx).CountTransactionsByAccountId.Load(account.ID.String())
 
-	log.Println("totalcount:", totalCount)
-
 	if err != nil {
 		return &gen.TransactionConnection{
 			PageInfo: paging.NewEmptyPageInfo(),
 		}, err
 	}
 
-	var limit float64 = float64(totalCount)
+	var limit float64 = paging.MAX_PAGE_SIZE
 
 	if page != nil && page.First != nil {
-		limit = math.Min(float64(*page.First), limit)
+		limit = math.Min(limit, float64(*page.First))
 	}
 
 	paginator := paging.NewOffsetPaginator(page, totalCount)
@@ -76,10 +74,9 @@ func (r *accountResolver) Transactions(ctx context.Context, account *db.Account,
 		PageInfo: &paginator.PageInfo,
 	}
 
-	pageLimit := int32(math.Min(limit, paging.MAX_PAGE_SIZE))
 	pageStart := int32(paginator.Offset)
 
-	transactions, err := r.DataLoaders.Retrieve(ctx).TransactionsByAccountId(pageLimit, pageStart).Load(account.ID.String())
+	transactions, err := r.DataLoaders.Retrieve(ctx).TransactionsByAccountId(int32(limit), pageStart).Load(account.ID.String())
 
 	for i, row := range transactions {
 		result.Edges = append(result.Edges, gen.TransactionEdge{
@@ -118,10 +115,10 @@ func (r *queryResolver) Accounts(ctx context.Context, page *paging.PageArgs) (*g
 		}, err
 	}
 
-	var limit float64 = float64(totalCount)
+	var limit float64 = paging.MAX_PAGE_SIZE
 
 	if page != nil && page.First != nil {
-		limit = math.Min(float64(*page.First), limit)
+		limit = math.Min(limit, float64(*page.First))
 	}
 
 	paginator := paging.NewOffsetPaginator(page, totalCount)
@@ -132,7 +129,7 @@ func (r *queryResolver) Accounts(ctx context.Context, page *paging.PageArgs) (*g
 
 	accounts, err := r.Repository.ListAccounts(ctx, db.ListAccountsParams{
 		Ownerid: user.ID,
-		Limit:   int32(math.Min(limit, paging.MAX_PAGE_SIZE)),
+		Limit:   int32(limit),
 		Start:   int32(paginator.Offset),
 	})
 
@@ -261,8 +258,6 @@ func (r *mutationResolver) ChaseOFXUpload(ctx context.Context, reader graphql.Up
 		// Increment successful transaction upload
 		if err != nil {
 			response.Transactions.Failed++
-			log.Println(tx)
-			log.Println(err)
 		} else {
 			response.Transactions.Updated++
 		}

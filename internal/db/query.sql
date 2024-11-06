@@ -71,7 +71,7 @@ LIMIT 1;
 -- name: ListTransactions :many
 SELECT * FROM transactions
 WHERE ownerId = $1
-ORDER BY date
+ORDER BY date DESC
 LIMIT $2 OFFSET @start;
 
 -- name: CountTransactions :one
@@ -80,34 +80,40 @@ WHERE ownerId = $1;
 
 -- name: ListTransactionsByAccountIds :many
 SELECT t.* FROM transactions AS t, accounts AS a
-WHERE t.accountid = a.id AND a.id::varchar = ANY(@accountIds::varchar[])
-ORDER BY date
+WHERE t.accountId = a.id AND a.id::varchar = ANY(@accountIds::varchar[])
+ORDER BY date DESC
+LIMIT $1 OFFSET @start;
+
+-- name: ListTransactionsByMerchantIds :many
+SELECT t.* FROM transactions AS t, merchants AS m
+WHERE t.merchantId = m.id AND m.id::varchar = ANY(@merchantIds::varchar[])
+ORDER BY date DESC
 LIMIT $1 OFFSET @start;
 
 -- name: CountTransactionsByAccountIds :many
 SELECT count(t.id), a.id as accountId FROM transactions AS t, accounts AS a
-WHERE t.accountid = a.id AND a.id::varchar = ANY(@accountIds::varchar[])
+WHERE t.accountId = a.id AND a.id::varchar = ANY(@accountIds::varchar[])
 GROUP BY a.id;
 
--- name: ListTransactionsByMerchantId :many
-SELECT * FROM transactions
-WHERE ownerId = $1 AND merchantId = $2
-ORDER BY date;
+-- name: CountTransactionsByMerchantIds :many
+SELECT count(t.id), m.id as merchantId FROM transactions AS t, merchants AS m
+WHERE t.merchantId = m.id AND m.id::varchar = ANY(@merchantIds::varchar[])
+GROUP BY m.id;
 
 -- name: ListSpendingTransactions :many
 SELECT * FROM transactions
 WHERE ownerId = $1 AND amount < 0 AND date BETWEEN @startdate AND @enddate
-ORDER BY date;
+ORDER BY date DESC;
 
 -- name: ListIncomeTransactions :many
 SELECT * FROM transactions
 WHERE ownerId = $1 AND amount >= 0 AND date BETWEEN @startdate AND @enddate
-ORDER BY date;
+ORDER BY date DESC;
 
 -- name: ListAccountSpendingTransactions :many
 SELECT * FROM transactions
 WHERE ownerId = $1 AND accountId = $2 AND amount < 0
-ORDER BY date;
+ORDER BY date DESC;
 
 -- name: ListAccountIncomeTransactions :many
 SELECT * FROM transactions
@@ -165,6 +171,11 @@ RETURNING *;
 SELECT * FROM merchants
 WHERE id = $1 and ownerId = $2
 LIMIT 1;
+
+-- name: ListMerchantsByMerchantIds :many
+SELECT m.* FROM transactions AS t, merchants AS m
+WHERE t.merchantId = m.id AND m.id::varchar = ANY(@merchantIds::varchar[])
+ORDER BY date DESC;
 
 -- name: GetMerchantByKey :one
 SELECT m.* FROM merchants AS m JOIN merchant_keys AS k ON m.id = k.merchantId

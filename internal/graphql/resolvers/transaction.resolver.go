@@ -94,11 +94,7 @@ func (r *transactionResolver) Updated(ctx context.Context, transaction *db.Trans
 }
 
 func (r *transactionResolver) Merchant(ctx context.Context, transaction *db.Transaction) (*db.Merchant, error) {
-	user := auth.GetCurrentUser(ctx)
-	merchant, err := r.Repository.GetMerchant(ctx, db.GetMerchantParams{
-		ID:      transaction.Merchantid,
-		Ownerid: user.ID,
-	})
+	merchant, err := r.DataLoaders.Retrieve(ctx).MerchantByTransactionId.Load(transaction.Merchantid.String())
 
 	if err != nil {
 		return nil, err
@@ -134,10 +130,10 @@ func (r *queryResolver) Transactions(ctx context.Context, page *paging.PageArgs)
 		}, err
 	}
 
-	var limit float64 = float64(totalCount)
+	var limit float64 = paging.MAX_PAGE_SIZE
 
 	if page != nil && page.First != nil {
-		limit = math.Min(float64(*page.First), limit)
+		limit = math.Min(limit, float64(*page.First))
 	}
 
 	paginator := paging.NewOffsetPaginator(page, totalCount)
@@ -146,10 +142,12 @@ func (r *queryResolver) Transactions(ctx context.Context, page *paging.PageArgs)
 		PageInfo: &paginator.PageInfo,
 	}
 
+	pageStart := int32(paginator.Offset)
+
 	transactions, err := r.Repository.ListTransactions(ctx, db.ListTransactionsParams{
 		Ownerid: user.ID,
-		Limit:   int32(math.Min(limit, paging.MAX_PAGE_SIZE)),
-		Start:   int32(paginator.Offset),
+		Limit:   int32(limit),
+		Start:   pageStart,
 	})
 
 	for i, row := range transactions {

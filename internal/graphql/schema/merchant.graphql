@@ -3,7 +3,7 @@ type Merchant {
     name: String!
     sourceId: String
     ownerId: ID!
-    transactions: [Transaction!]!
+    transactions(page: PageArgs): TransactionConnection!
 }
 
 type MerchantEdge {

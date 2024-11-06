@@ -19,26 +19,23 @@ type Repository interface {
 	// Accounts
 	GetAccount(ctx context.Context, arg GetAccountParams) (Account, error)
 	ListAccounts(ctx context.Context, arg ListAccountsParams) ([]Account, error)
-	CountAccounts(ctx context.Context, ownerid uuid.UUID) (int64, error)
 	UpsertAccount(ctx context.Context, arg UpsertAccountParams) (Account, error)
-	GetAccountSpending(ctx context.Context, arg GetAccountSpendingParams) (interface{}, error)
-	GetAccountIncome(ctx context.Context, arg GetAccountIncomeParams) (interface{}, error)
+	CountAccounts(ctx context.Context, ownerid uuid.UUID) (int64, error)
 
 	// Transactions
 	GetTransaction(ctx context.Context, arg GetTransactionParams) (Transaction, error)
 	ListTransactions(ctx context.Context, arg ListTransactionsParams) ([]Transaction, error)
 	CountTransactions(ctx context.Context, ownerid uuid.UUID) (int64, error)
 	ListTransactionsByAccountIds(ctx context.Context, arg ListTransactionsByAccountIdsParams) ([]Transaction, error)
-	CountTransactionsByAccountIds(ctx context.Context, accountIds []string) ([]CountTransactionsByAccountIdsRow, error)
-	ListTransactionsByMerchantId(ctx context.Context, arg ListTransactionsByMerchantIdParams) ([]Transaction, error)
+	ListTransactionsByMerchantIds(ctx context.Context, arg ListTransactionsByMerchantIdsParams) ([]Transaction, error)
 	ListSpendingTransactions(ctx context.Context, arg ListSpendingTransactionsParams) ([]Transaction, error)
 	ListIncomeTransactions(ctx context.Context, arg ListIncomeTransactionsParams) ([]Transaction, error)
 	ListAccountSpendingTransactions(ctx context.Context, arg ListAccountSpendingTransactionsParams) ([]Transaction, error)
 	ListAccountIncomeTransactions(ctx context.Context, arg ListAccountIncomeTransactionsParams) ([]Transaction, error)
+	CountTransactionsByAccountIds(ctx context.Context, accountIds []string) ([]CountTransactionsByAccountIdsRow, error)
+	CountTransactionsByMerchantIds(ctx context.Context, merchantIds []string) ([]CountTransactionsByMerchantIdsRow, error)
 	UpsertTransaction(ctx context.Context, arg UpsertTransactionParams) (Transaction, error)
 	DeleteTransaction(ctx context.Context, id uuid.UUID) (Transaction, error)
-	GetTotalSpending(ctx context.Context, arg GetTotalSpendingParams) (interface{}, error)
-	GetTotalIncome(ctx context.Context, arg GetTotalIncomeParams) (interface{}, error)
 
 	// Merchants
 	GetMerchant(ctx context.Context, arg GetMerchantParams) (Merchant, error)
@@ -46,12 +43,19 @@ type Repository interface {
 	GetMerchantBySourceId(ctx context.Context, sourceId sql.NullString) (Merchant, error)
 	GetMerchantByKey(ctx context.Context, arg GetMerchantByKeyParams) (Merchant, error)
 	ListMerchants(ctx context.Context, arg ListMerchantsParams) ([]Merchant, error)
+	ListMerchantsByMerchantIds(ctx context.Context, merchantIds []string) ([]Merchant, error)
 	CountMerchants(ctx context.Context, ownerid uuid.UUID) (int64, error)
 	CreateMerchant(ctx context.Context, arg CreateMerchantParams) (Merchant, error)
 	LinkMerchant(ctx context.Context, arg LinkMerchantParams) (*Merchant, error)
 
 	// Merchant keys
 	CreateMerchantKey(ctx context.Context, arg CreateMerchantKeyParams) (MerchantKey, error)
+
+	// Stats
+	GetTotalSpending(ctx context.Context, arg GetTotalSpendingParams) (interface{}, error)
+	GetTotalIncome(ctx context.Context, arg GetTotalIncomeParams) (interface{}, error)
+	GetAccountSpending(ctx context.Context, arg GetAccountSpendingParams) (interface{}, error)
+	GetAccountIncome(ctx context.Context, arg GetAccountIncomeParams) (interface{}, error)
 }
 
 type repositoryService struct {

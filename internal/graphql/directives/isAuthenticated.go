@@ -12,10 +12,8 @@ func IsAuthenticated(ctx context.Context, obj interface{}, next graphql.Resolver
 	user := auth.GetCurrentUser(ctx)
 
 	if user == nil {
-		// log.Printf("IsAuthenticated? No")
 		return nil, fmt.Errorf("You must be authenticated to request this endpoint")
 	}
 
-	// log.Printf("IsAuthenticated? Yes: %s", user.ID)
 	return next(ctx)
 }
