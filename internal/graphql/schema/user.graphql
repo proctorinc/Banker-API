@@ -3,9 +3,9 @@ type User {
     role: String!
     username: String!
     email: String!
-    transactions: [Transaction!]!
-    accounts: [Account!]!
-    merchants: [Merchant!]!
+    transactions(page: PageArgs): TransactionConnection!
+    accounts(page: PageArgs): AccountConnection!
+    merchants(page: PageArgs): MerchantConnection!
 }
 
 type UserEdge {

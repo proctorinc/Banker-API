@@ -65,10 +65,10 @@ func (r *accountResolver) Transactions(ctx context.Context, account *db.Account,
 	result := &gen.TransactionConnection{
 		PageInfo: &paginator.PageInfo,
 	}
-	pageStart := int32(paginator.Offset)
+	start := int32(paginator.Offset)
 	limit := calculatePageLimit(page)
 
-	transactions, err := r.DataLoaders.Retrieve(ctx).TransactionsByAccountId(limit, pageStart).Load(account.ID.String())
+	transactions, err := r.DataLoaders.Retrieve(ctx).TransactionsByAccountId(limit, start).Load(account.ID.String())
 
 	for i, row := range transactions {
 		result.Edges = append(result.Edges, gen.TransactionEdge{
@@ -266,6 +266,7 @@ func skipFirstLine(reader io.ReadSeeker) (io.ReadSeeker, error) {
 
 func parseMerchantName(description string) string {
 	doc, err := prose.NewDocument(description)
+
 	if err != nil {
 		return description
 	}

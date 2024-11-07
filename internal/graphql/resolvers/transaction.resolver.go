@@ -132,13 +132,13 @@ func (r *queryResolver) Transactions(ctx context.Context, page *paging.PageArgs)
 	result := &gen.TransactionConnection{
 		PageInfo: &paginator.PageInfo,
 	}
-	pageStart := int32(paginator.Offset)
+	start := int32(paginator.Offset)
 	limit := calculatePageLimit(page)
 
 	transactions, err := r.Repository.ListTransactions(ctx, db.ListTransactionsParams{
 		Ownerid: user.ID,
 		Limit:   limit,
-		Start:   pageStart,
+		Start:   start,
 	})
 
 	for i, row := range transactions {

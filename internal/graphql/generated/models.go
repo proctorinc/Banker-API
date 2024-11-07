@@ -17,9 +17,14 @@ type AccountEdge struct {
 	Node   *db.Account `json:"node"`
 }
 
+type DateFilter struct {
+	StartDate string `json:"startDate"`
+	EndDate   string `json:"endDate"`
+}
+
 type IncomeStats struct {
-	Total        float64          `json:"total"`
-	Transactions []db.Transaction `json:"transactions"`
+	Total        float64                `json:"total"`
+	Transactions *TransactionConnection `json:"transactions"`
 }
 
 type LoginInput struct {
@@ -41,7 +46,8 @@ type Mutation struct {
 }
 
 type NetStats struct {
-	Total float64 `json:"total"`
+	Total        float64                `json:"total"`
+	Transactions *TransactionConnection `json:"transactions"`
 }
 
 type Query struct {
@@ -54,19 +60,19 @@ type RegisterInput struct {
 }
 
 type SpendingStats struct {
-	Total        float64          `json:"total"`
-	Transactions []db.Transaction `json:"transactions"`
+	Total        float64                `json:"total"`
+	Transactions *TransactionConnection `json:"transactions"`
 }
 
-type StatsInput struct {
-	StartDate string `json:"startDate"`
-	EndDate   string `json:"endDate"`
-}
-
-type StatsResponse struct {
+type Stats struct {
 	Spending *SpendingStats `json:"spending,omitempty"`
 	Income   *IncomeStats   `json:"income,omitempty"`
 	Net      *NetStats      `json:"net,omitempty"`
+}
+
+type StatsInput struct {
+	Filter *DateFilter      `json:"filter"`
+	Page   *paging.PageArgs `json:"page,omitempty"`
 }
 
 type TransactionConnection struct {

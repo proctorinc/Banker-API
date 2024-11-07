@@ -43,10 +43,10 @@ func (r *merchantResolver) Transactions(ctx context.Context, merchant *db.Mercha
 	result := &gen.TransactionConnection{
 		PageInfo: &paginator.PageInfo,
 	}
-	pageStart := int32(paginator.Offset)
+	start := int32(paginator.Offset)
 	limit := calculatePageLimit(page)
 
-	transactions, err := r.DataLoaders.Retrieve(ctx).TransactionsByMerchantId(int32(limit), pageStart).Load(merchant.ID.String())
+	transactions, err := r.DataLoaders.Retrieve(ctx).TransactionsByMerchantId(int32(limit), start).Load(merchant.ID.String())
 
 	for i, row := range transactions {
 		result.Edges = append(result.Edges, gen.TransactionEdge{

@@ -25,15 +25,19 @@ type Repository interface {
 	// Transactions
 	GetTransaction(ctx context.Context, arg GetTransactionParams) (Transaction, error)
 	ListTransactions(ctx context.Context, arg ListTransactionsParams) ([]Transaction, error)
-	CountTransactions(ctx context.Context, ownerid uuid.UUID) (int64, error)
+	ListTransactionsByDates(ctx context.Context, arg ListTransactionsByDatesParams) ([]Transaction, error)
 	ListTransactionsByAccountIds(ctx context.Context, arg ListTransactionsByAccountIdsParams) ([]Transaction, error)
 	ListTransactionsByMerchantIds(ctx context.Context, arg ListTransactionsByMerchantIdsParams) ([]Transaction, error)
 	ListSpendingTransactions(ctx context.Context, arg ListSpendingTransactionsParams) ([]Transaction, error)
 	ListIncomeTransactions(ctx context.Context, arg ListIncomeTransactionsParams) ([]Transaction, error)
 	ListAccountSpendingTransactions(ctx context.Context, arg ListAccountSpendingTransactionsParams) ([]Transaction, error)
 	ListAccountIncomeTransactions(ctx context.Context, arg ListAccountIncomeTransactionsParams) ([]Transaction, error)
+	CountTransactions(ctx context.Context, ownerid uuid.UUID) (int64, error)
+	CountTransactionsByDates(ctx context.Context, arg CountTransactionsByDatesParams) (int64, error)
 	CountTransactionsByAccountIds(ctx context.Context, accountIds []string) ([]CountTransactionsByAccountIdsRow, error)
 	CountTransactionsByMerchantIds(ctx context.Context, merchantIds []string) ([]CountTransactionsByMerchantIdsRow, error)
+	CountIncomeTransactions(ctx context.Context, arg CountIncomeTransactionsParams) (int64, error)
+	CountSpendingTransactions(ctx context.Context, arg CountSpendingTransactionsParams) (int64, error)
 	UpsertTransaction(ctx context.Context, arg UpsertTransactionParams) (Transaction, error)
 	DeleteTransaction(ctx context.Context, id uuid.UUID) (Transaction, error)
 
@@ -54,6 +58,7 @@ type Repository interface {
 	// Stats
 	GetTotalSpending(ctx context.Context, arg GetTotalSpendingParams) (interface{}, error)
 	GetTotalIncome(ctx context.Context, arg GetTotalIncomeParams) (interface{}, error)
+	GetNetIncome(ctx context.Context, arg GetNetIncomeParams) (interface{}, error)
 	GetAccountSpending(ctx context.Context, arg GetAccountSpendingParams) (interface{}, error)
 	GetAccountIncome(ctx context.Context, arg GetAccountIncomeParams) (interface{}, error)
 }

@@ -77,7 +77,7 @@ type ComplexityRoot struct {
 
 	IncomeStats struct {
 		Total        func(childComplexity int) int
-		Transactions func(childComplexity int) int
+		Transactions func(childComplexity int, page *paging.PageArgs) int
 	}
 
 	Merchant struct {
@@ -108,7 +108,8 @@ type ComplexityRoot struct {
 	}
 
 	NetStats struct {
-		Total func(childComplexity int) int
+		Total        func(childComplexity int) int
+		Transactions func(childComplexity int, page *paging.PageArgs) int
 	}
 
 	PageInfo struct {
@@ -122,10 +123,12 @@ type ComplexityRoot struct {
 	Query struct {
 		Account      func(childComplexity int, id uuid.UUID) int
 		Accounts     func(childComplexity int, page *paging.PageArgs) int
+		Income       func(childComplexity int, input StatsInput) int
 		Me           func(childComplexity int) int
 		Merchant     func(childComplexity int, id uuid.UUID) int
 		Merchants    func(childComplexity int, page *paging.PageArgs) int
-		Stats        func(childComplexity int, input StatsInput) int
+		Net          func(childComplexity int, input StatsInput) int
+		Spending     func(childComplexity int, input StatsInput) int
 		Transaction  func(childComplexity int, id uuid.UUID) int
 		Transactions func(childComplexity int, page *paging.PageArgs) int
 		User         func(childComplexity int, id uuid.UUID) int
@@ -133,10 +136,10 @@ type ComplexityRoot struct {
 
 	SpendingStats struct {
 		Total        func(childComplexity int) int
-		Transactions func(childComplexity int) int
+		Transactions func(childComplexity int, page *paging.PageArgs) int
 	}
 
-	StatsResponse struct {
+	Stats struct {
 		Income   func(childComplexity int) int
 		Net      func(childComplexity int) int
 		Spending func(childComplexity int) int
@@ -181,12 +184,12 @@ type ComplexityRoot struct {
 	}
 
 	User struct {
-		Accounts     func(childComplexity int) int
+		Accounts     func(childComplexity int, page *paging.PageArgs) int
 		Email        func(childComplexity int) int
 		ID           func(childComplexity int) int
-		Merchants    func(childComplexity int) int
+		Merchants    func(childComplexity int, page *paging.PageArgs) int
 		Role         func(childComplexity int) int
-		Transactions func(childComplexity int) int
+		Transactions func(childComplexity int, page *paging.PageArgs) int
 		Username     func(childComplexity int) int
 	}
 
@@ -237,7 +240,9 @@ type QueryResolver interface {
 	Transactions(ctx context.Context, page *paging.PageArgs) (*TransactionConnection, error)
 	Merchant(ctx context.Context, id uuid.UUID) (*db.Merchant, error)
 	Merchants(ctx context.Context, page *paging.PageArgs) (*MerchantConnection, error)
-	Stats(ctx context.Context, input StatsInput) (*StatsResponse, error)
+	Spending(ctx context.Context, input StatsInput) (*SpendingStats, error)
+	Income(ctx context.Context, input StatsInput) (*IncomeStats, error)
+	Net(ctx context.Context, input StatsInput) (*NetStats, error)
 }
 type TransactionResolver interface {
 	UploadSource(ctx context.Context, obj *db.Transaction) (string, error)
@@ -256,9 +261,9 @@ type TransactionResolver interface {
 type UserResolver interface {
 	Role(ctx context.Context, obj *db.User) (string, error)
 
-	Transactions(ctx context.Context, obj *db.User) ([]db.Transaction, error)
-	Accounts(ctx context.Context, obj *db.User) ([]db.Account, error)
-	Merchants(ctx context.Context, obj *db.User) ([]db.Merchant, error)
+	Transactions(ctx context.Context, obj *db.User, page *paging.PageArgs) (*TransactionConnection, error)
+	Accounts(ctx context.Context, obj *db.User, page *paging.PageArgs) (*AccountConnection, error)
+	Merchants(ctx context.Context, obj *db.User, page *paging.PageArgs) (*MerchantConnection, error)
 }
 
 type executableSchema struct {
@@ -374,7 +379,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		return e.complexity.IncomeStats.Transactions(childComplexity), true
+		args, err := ec.field_IncomeStats_transactions_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.IncomeStats.Transactions(childComplexity, args["page"].(*paging.PageArgs)), true
 
 	case "Merchant.id":
 		if e.complexity.Merchant.ID == nil {
@@ -513,6 +523,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.NetStats.Total(childComplexity), true
 
+	case "NetStats.transactions":
+		if e.complexity.NetStats.Transactions == nil {
+			break
+		}
+
+		args, err := ec.field_NetStats_transactions_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.NetStats.Transactions(childComplexity, args["page"].(*paging.PageArgs)), true
+
 	case "PageInfo.endCursor":
 		if e.complexity.PageInfo.EndCursor == nil {
 			break
@@ -572,6 +594,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.Accounts(childComplexity, args["page"].(*paging.PageArgs)), true
 
+	case "Query.income":
+		if e.complexity.Query.Income == nil {
+			break
+		}
+
+		args, err := ec.field_Query_income_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.Income(childComplexity, args["input"].(StatsInput)), true
+
 	case "Query.me":
 		if e.complexity.Query.Me == nil {
 			break
@@ -603,17 +637,29 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.Merchants(childComplexity, args["page"].(*paging.PageArgs)), true
 
-	case "Query.stats":
-		if e.complexity.Query.Stats == nil {
+	case "Query.net":
+		if e.complexity.Query.Net == nil {
 			break
 		}
 
-		args, err := ec.field_Query_stats_args(context.TODO(), rawArgs)
+		args, err := ec.field_Query_net_args(context.TODO(), rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Query.Stats(childComplexity, args["input"].(StatsInput)), true
+		return e.complexity.Query.Net(childComplexity, args["input"].(StatsInput)), true
+
+	case "Query.spending":
+		if e.complexity.Query.Spending == nil {
+			break
+		}
+
+		args, err := ec.field_Query_spending_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.Spending(childComplexity, args["input"].(StatsInput)), true
 
 	case "Query.transaction":
 		if e.complexity.Query.Transaction == nil {
@@ -663,28 +709,33 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		return e.complexity.SpendingStats.Transactions(childComplexity), true
+		args, err := ec.field_SpendingStats_transactions_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
 
-	case "StatsResponse.income":
-		if e.complexity.StatsResponse.Income == nil {
+		return e.complexity.SpendingStats.Transactions(childComplexity, args["page"].(*paging.PageArgs)), true
+
+	case "Stats.income":
+		if e.complexity.Stats.Income == nil {
 			break
 		}
 
-		return e.complexity.StatsResponse.Income(childComplexity), true
+		return e.complexity.Stats.Income(childComplexity), true
 
-	case "StatsResponse.net":
-		if e.complexity.StatsResponse.Net == nil {
+	case "Stats.net":
+		if e.complexity.Stats.Net == nil {
 			break
 		}
 
-		return e.complexity.StatsResponse.Net(childComplexity), true
+		return e.complexity.Stats.Net(childComplexity), true
 
-	case "StatsResponse.spending":
-		if e.complexity.StatsResponse.Spending == nil {
+	case "Stats.spending":
+		if e.complexity.Stats.Spending == nil {
 			break
 		}
 
-		return e.complexity.StatsResponse.Spending(childComplexity), true
+		return e.complexity.Stats.Spending(childComplexity), true
 
 	case "Transaction.amount":
 		if e.complexity.Transaction.Amount == nil {
@@ -852,7 +903,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		return e.complexity.User.Accounts(childComplexity), true
+		args, err := ec.field_User_accounts_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.User.Accounts(childComplexity, args["page"].(*paging.PageArgs)), true
 
 	case "User.email":
 		if e.complexity.User.Email == nil {
@@ -873,7 +929,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		return e.complexity.User.Merchants(childComplexity), true
+		args, err := ec.field_User_merchants_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.User.Merchants(childComplexity, args["page"].(*paging.PageArgs)), true
 
 	case "User.role":
 		if e.complexity.User.Role == nil {
@@ -887,7 +948,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		return e.complexity.User.Transactions(childComplexity), true
+		args, err := ec.field_User_transactions_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.User.Transactions(childComplexity, args["page"].(*paging.PageArgs)), true
 
 	case "User.username":
 		if e.complexity.User.Username == nil {
@@ -932,6 +998,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	rc := graphql.GetOperationContext(ctx)
 	ec := executionContext{rc, e, 0, 0, make(chan graphql.DeferredResult)}
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputDateFilter,
 		ec.unmarshalInputLoginInput,
 		ec.unmarshalInputPageArgs,
 		ec.unmarshalInputRegisterInput,
@@ -1125,7 +1192,9 @@ type Query {
     transactions(page: PageArgs): TransactionConnection! @isAuthenticated
     merchant(id: ID!): Merchant @isAuthenticated
     merchants(page: PageArgs): MerchantConnection! @isAuthenticated
-    stats(input: StatsInput!): StatsResponse! @isAuthenticated
+    spending(input: StatsInput!): SpendingStats! @isAuthenticated
+    income(input: StatsInput!): IncomeStats! @isAuthenticated
+    net(input: StatsInput!): NetStats! @isAuthenticated
 }
 
 type Mutation {
@@ -1148,29 +1217,9 @@ type UploadStats {
     failed: Int!
 }
 
-type StatsResponse {
-    spending: SpendingStats
-    income: IncomeStats
-    net: NetStats
-}
-
-type SpendingStats {
-    total: Float!
-    transactions: [Transaction!]!
-}
-
-type IncomeStats {
-    total: Float!
-    transactions: [Transaction!]!
-}
-
-type NetStats {
-    total: Float!
-}
-
 input StatsInput {
-    startDate: Date!
-    endDate: Date!
+    filter: DateFilter!
+    page: PageArgs
 }
 
 input LoginInput {
@@ -1182,6 +1231,32 @@ input RegisterInput {
     username: String!
     email: String!
     password: String!
+}
+
+input DateFilter {
+    startDate: Date!
+    endDate: Date!
+}
+`, BuiltIn: false},
+	{Name: "../schema/stats.graphql", Input: `type Stats {
+    spending: SpendingStats
+    income: IncomeStats
+    net: NetStats
+}
+
+type SpendingStats {
+    total: Float!
+    transactions(page: PageArgs): TransactionConnection!
+}
+
+type IncomeStats {
+    total: Float!
+    transactions(page: PageArgs): TransactionConnection!
+}
+
+type NetStats {
+    total: Float!
+    transactions(page: PageArgs): TransactionConnection!
 }
 `, BuiltIn: false},
 	{Name: "../schema/transaction.graphql", Input: `type Transaction {
@@ -1216,9 +1291,9 @@ type TransactionConnection {
     role: String!
     username: String!
     email: String!
-    transactions: [Transaction!]!
-    accounts: [Account!]!
-    merchants: [Merchant!]!
+    transactions(page: PageArgs): TransactionConnection!
+    accounts(page: PageArgs): AccountConnection!
+    merchants(page: PageArgs): MerchantConnection!
 }
 
 type UserEdge {
@@ -1239,6 +1314,21 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 // region    ***************************** args.gotpl *****************************
 
 func (ec *executionContext) field_Account_transactions_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 *paging.PageArgs
+	if tmp, ok := rawArgs["page"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("page"))
+		arg0, err = ec.unmarshalOPageArgs2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋpagingᚐPageArgs(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["page"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_IncomeStats_transactions_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
 	var arg0 *paging.PageArgs
@@ -1328,6 +1418,21 @@ func (ec *executionContext) field_Mutation_register_args(ctx context.Context, ra
 	return args, nil
 }
 
+func (ec *executionContext) field_NetStats_transactions_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 *paging.PageArgs
+	if tmp, ok := rawArgs["page"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("page"))
+		arg0, err = ec.unmarshalOPageArgs2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋpagingᚐPageArgs(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["page"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
@@ -1373,6 +1478,21 @@ func (ec *executionContext) field_Query_accounts_args(ctx context.Context, rawAr
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_income_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 StatsInput
+	if tmp, ok := rawArgs["input"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
+		arg0, err = ec.unmarshalNStatsInput2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐStatsInput(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_merchant_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
@@ -1403,7 +1523,22 @@ func (ec *executionContext) field_Query_merchants_args(ctx context.Context, rawA
 	return args, nil
 }
 
-func (ec *executionContext) field_Query_stats_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+func (ec *executionContext) field_Query_net_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 StatsInput
+	if tmp, ok := rawArgs["input"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
+		arg0, err = ec.unmarshalNStatsInput2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐStatsInput(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_spending_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
 	var arg0 StatsInput
@@ -1460,6 +1595,66 @@ func (ec *executionContext) field_Query_user_args(ctx context.Context, rawArgs m
 		}
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_SpendingStats_transactions_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 *paging.PageArgs
+	if tmp, ok := rawArgs["page"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("page"))
+		arg0, err = ec.unmarshalOPageArgs2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋpagingᚐPageArgs(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["page"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_User_accounts_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 *paging.PageArgs
+	if tmp, ok := rawArgs["page"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("page"))
+		arg0, err = ec.unmarshalOPageArgs2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋpagingᚐPageArgs(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["page"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_User_merchants_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 *paging.PageArgs
+	if tmp, ok := rawArgs["page"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("page"))
+		arg0, err = ec.unmarshalOPageArgs2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋpagingᚐPageArgs(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["page"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_User_transactions_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 *paging.PageArgs
+	if tmp, ok := rawArgs["page"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("page"))
+		arg0, err = ec.unmarshalOPageArgs2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋpagingᚐPageArgs(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["page"] = arg0
 	return args, nil
 }
 
@@ -2100,12 +2295,12 @@ func (ec *executionContext) _IncomeStats_transactions(ctx context.Context, field
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]db.Transaction)
+	res := resTmp.(*TransactionConnection)
 	fc.Result = res
-	return ec.marshalNTransaction2ᚕgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐTransactionᚄ(ctx, field.Selections, res)
+	return ec.marshalNTransactionConnection2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐTransactionConnection(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_IncomeStats_transactions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_IncomeStats_transactions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "IncomeStats",
 		Field:      field,
@@ -2113,37 +2308,24 @@ func (ec *executionContext) fieldContext_IncomeStats_transactions(_ context.Cont
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_Transaction_id(ctx, field)
-			case "sourceId":
-				return ec.fieldContext_Transaction_sourceId(ctx, field)
-			case "uploadSource":
-				return ec.fieldContext_Transaction_uploadSource(ctx, field)
-			case "amount":
-				return ec.fieldContext_Transaction_amount(ctx, field)
-			case "payeeId":
-				return ec.fieldContext_Transaction_payeeId(ctx, field)
-			case "payee":
-				return ec.fieldContext_Transaction_payee(ctx, field)
-			case "payeeFull":
-				return ec.fieldContext_Transaction_payeeFull(ctx, field)
-			case "isoCurrencyCode":
-				return ec.fieldContext_Transaction_isoCurrencyCode(ctx, field)
-			case "date":
-				return ec.fieldContext_Transaction_date(ctx, field)
-			case "description":
-				return ec.fieldContext_Transaction_description(ctx, field)
-			case "type":
-				return ec.fieldContext_Transaction_type(ctx, field)
-			case "checkNumber":
-				return ec.fieldContext_Transaction_checkNumber(ctx, field)
-			case "updated":
-				return ec.fieldContext_Transaction_updated(ctx, field)
-			case "merchant":
-				return ec.fieldContext_Transaction_merchant(ctx, field)
+			case "edges":
+				return ec.fieldContext_TransactionConnection_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_TransactionConnection_pageInfo(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type TransactionConnection", field.Name)
 		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_IncomeStats_transactions_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -3100,6 +3282,67 @@ func (ec *executionContext) fieldContext_NetStats_total(_ context.Context, field
 	return fc, nil
 }
 
+func (ec *executionContext) _NetStats_transactions(ctx context.Context, field graphql.CollectedField, obj *NetStats) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_NetStats_transactions(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Transactions, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*TransactionConnection)
+	fc.Result = res
+	return ec.marshalNTransactionConnection2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐTransactionConnection(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_NetStats_transactions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "NetStats",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "edges":
+				return ec.fieldContext_TransactionConnection_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_TransactionConnection_pageInfo(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type TransactionConnection", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_NetStats_transactions_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _PageInfo_hasPreviousPage(ctx context.Context, field graphql.CollectedField, obj *paging.PageInfo) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_PageInfo_hasPreviousPage(ctx, field)
 	if err != nil {
@@ -3993,8 +4236,8 @@ func (ec *executionContext) fieldContext_Query_merchants(ctx context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_stats(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_stats(ctx, field)
+func (ec *executionContext) _Query_spending(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_spending(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -4008,7 +4251,7 @@ func (ec *executionContext) _Query_stats(ctx context.Context, field graphql.Coll
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		directive0 := func(rctx context.Context) (interface{}, error) {
 			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Query().Stats(rctx, fc.Args["input"].(StatsInput))
+			return ec.resolvers.Query().Spending(rctx, fc.Args["input"].(StatsInput))
 		}
 		directive1 := func(ctx context.Context) (interface{}, error) {
 			if ec.directives.IsAuthenticated == nil {
@@ -4024,10 +4267,10 @@ func (ec *executionContext) _Query_stats(ctx context.Context, field graphql.Coll
 		if tmp == nil {
 			return nil, nil
 		}
-		if data, ok := tmp.(*StatsResponse); ok {
+		if data, ok := tmp.(*SpendingStats); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/proctorinc/banker/internal/graphql/generated.StatsResponse`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/proctorinc/banker/internal/graphql/generated.SpendingStats`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4039,12 +4282,12 @@ func (ec *executionContext) _Query_stats(ctx context.Context, field graphql.Coll
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*StatsResponse)
+	res := resTmp.(*SpendingStats)
 	fc.Result = res
-	return ec.marshalNStatsResponse2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐStatsResponse(ctx, field.Selections, res)
+	return ec.marshalNSpendingStats2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐSpendingStats(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Query_stats(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Query_spending(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Query",
 		Field:      field,
@@ -4052,14 +4295,12 @@ func (ec *executionContext) fieldContext_Query_stats(ctx context.Context, field 
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "spending":
-				return ec.fieldContext_StatsResponse_spending(ctx, field)
-			case "income":
-				return ec.fieldContext_StatsResponse_income(ctx, field)
-			case "net":
-				return ec.fieldContext_StatsResponse_net(ctx, field)
+			case "total":
+				return ec.fieldContext_SpendingStats_total(ctx, field)
+			case "transactions":
+				return ec.fieldContext_SpendingStats_transactions(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type StatsResponse", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type SpendingStats", field.Name)
 		},
 	}
 	defer func() {
@@ -4069,7 +4310,169 @@ func (ec *executionContext) fieldContext_Query_stats(ctx context.Context, field 
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_stats_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Query_spending_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_income(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_income(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return ec.resolvers.Query().Income(rctx, fc.Args["input"].(StatsInput))
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.IsAuthenticated == nil {
+				return nil, errors.New("directive isAuthenticated is not implemented")
+			}
+			return ec.directives.IsAuthenticated(ctx, nil, directive0)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, graphql.ErrorOnPath(ctx, err)
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(*IncomeStats); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/proctorinc/banker/internal/graphql/generated.IncomeStats`, tmp)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*IncomeStats)
+	fc.Result = res
+	return ec.marshalNIncomeStats2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐIncomeStats(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_income(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "total":
+				return ec.fieldContext_IncomeStats_total(ctx, field)
+			case "transactions":
+				return ec.fieldContext_IncomeStats_transactions(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type IncomeStats", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_income_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_net(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_net(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return ec.resolvers.Query().Net(rctx, fc.Args["input"].(StatsInput))
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.IsAuthenticated == nil {
+				return nil, errors.New("directive isAuthenticated is not implemented")
+			}
+			return ec.directives.IsAuthenticated(ctx, nil, directive0)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, graphql.ErrorOnPath(ctx, err)
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(*NetStats); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/proctorinc/banker/internal/graphql/generated.NetStats`, tmp)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*NetStats)
+	fc.Result = res
+	return ec.marshalNNetStats2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐNetStats(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_net(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "total":
+				return ec.fieldContext_NetStats_total(ctx, field)
+			case "transactions":
+				return ec.fieldContext_NetStats_transactions(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type NetStats", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_net_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -4275,12 +4678,12 @@ func (ec *executionContext) _SpendingStats_transactions(ctx context.Context, fie
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]db.Transaction)
+	res := resTmp.(*TransactionConnection)
 	fc.Result = res
-	return ec.marshalNTransaction2ᚕgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐTransactionᚄ(ctx, field.Selections, res)
+	return ec.marshalNTransactionConnection2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐTransactionConnection(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_SpendingStats_transactions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_SpendingStats_transactions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "SpendingStats",
 		Field:      field,
@@ -4288,43 +4691,30 @@ func (ec *executionContext) fieldContext_SpendingStats_transactions(_ context.Co
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_Transaction_id(ctx, field)
-			case "sourceId":
-				return ec.fieldContext_Transaction_sourceId(ctx, field)
-			case "uploadSource":
-				return ec.fieldContext_Transaction_uploadSource(ctx, field)
-			case "amount":
-				return ec.fieldContext_Transaction_amount(ctx, field)
-			case "payeeId":
-				return ec.fieldContext_Transaction_payeeId(ctx, field)
-			case "payee":
-				return ec.fieldContext_Transaction_payee(ctx, field)
-			case "payeeFull":
-				return ec.fieldContext_Transaction_payeeFull(ctx, field)
-			case "isoCurrencyCode":
-				return ec.fieldContext_Transaction_isoCurrencyCode(ctx, field)
-			case "date":
-				return ec.fieldContext_Transaction_date(ctx, field)
-			case "description":
-				return ec.fieldContext_Transaction_description(ctx, field)
-			case "type":
-				return ec.fieldContext_Transaction_type(ctx, field)
-			case "checkNumber":
-				return ec.fieldContext_Transaction_checkNumber(ctx, field)
-			case "updated":
-				return ec.fieldContext_Transaction_updated(ctx, field)
-			case "merchant":
-				return ec.fieldContext_Transaction_merchant(ctx, field)
+			case "edges":
+				return ec.fieldContext_TransactionConnection_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_TransactionConnection_pageInfo(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type TransactionConnection", field.Name)
 		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_SpendingStats_transactions_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _StatsResponse_spending(ctx context.Context, field graphql.CollectedField, obj *StatsResponse) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_StatsResponse_spending(ctx, field)
+func (ec *executionContext) _Stats_spending(ctx context.Context, field graphql.CollectedField, obj *Stats) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Stats_spending(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -4351,9 +4741,9 @@ func (ec *executionContext) _StatsResponse_spending(ctx context.Context, field g
 	return ec.marshalOSpendingStats2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐSpendingStats(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_StatsResponse_spending(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Stats_spending(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "StatsResponse",
+		Object:     "Stats",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -4370,8 +4760,8 @@ func (ec *executionContext) fieldContext_StatsResponse_spending(_ context.Contex
 	return fc, nil
 }
 
-func (ec *executionContext) _StatsResponse_income(ctx context.Context, field graphql.CollectedField, obj *StatsResponse) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_StatsResponse_income(ctx, field)
+func (ec *executionContext) _Stats_income(ctx context.Context, field graphql.CollectedField, obj *Stats) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Stats_income(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -4398,9 +4788,9 @@ func (ec *executionContext) _StatsResponse_income(ctx context.Context, field gra
 	return ec.marshalOIncomeStats2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐIncomeStats(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_StatsResponse_income(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Stats_income(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "StatsResponse",
+		Object:     "Stats",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -4417,8 +4807,8 @@ func (ec *executionContext) fieldContext_StatsResponse_income(_ context.Context,
 	return fc, nil
 }
 
-func (ec *executionContext) _StatsResponse_net(ctx context.Context, field graphql.CollectedField, obj *StatsResponse) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_StatsResponse_net(ctx, field)
+func (ec *executionContext) _Stats_net(ctx context.Context, field graphql.CollectedField, obj *Stats) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Stats_net(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -4445,9 +4835,9 @@ func (ec *executionContext) _StatsResponse_net(ctx context.Context, field graphq
 	return ec.marshalONetStats2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐNetStats(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_StatsResponse_net(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Stats_net(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "StatsResponse",
+		Object:     "Stats",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -4455,6 +4845,8 @@ func (ec *executionContext) fieldContext_StatsResponse_net(_ context.Context, fi
 			switch field.Name {
 			case "total":
 				return ec.fieldContext_NetStats_total(ctx, field)
+			case "transactions":
+				return ec.fieldContext_NetStats_transactions(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type NetStats", field.Name)
 		},
@@ -5721,7 +6113,7 @@ func (ec *executionContext) _User_transactions(ctx context.Context, field graphq
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.User().Transactions(rctx, obj)
+		return ec.resolvers.User().Transactions(rctx, obj, fc.Args["page"].(*paging.PageArgs))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5733,12 +6125,12 @@ func (ec *executionContext) _User_transactions(ctx context.Context, field graphq
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]db.Transaction)
+	res := resTmp.(*TransactionConnection)
 	fc.Result = res
-	return ec.marshalNTransaction2ᚕgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐTransactionᚄ(ctx, field.Selections, res)
+	return ec.marshalNTransactionConnection2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐTransactionConnection(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_User_transactions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_User_transactions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "User",
 		Field:      field,
@@ -5746,37 +6138,24 @@ func (ec *executionContext) fieldContext_User_transactions(_ context.Context, fi
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_Transaction_id(ctx, field)
-			case "sourceId":
-				return ec.fieldContext_Transaction_sourceId(ctx, field)
-			case "uploadSource":
-				return ec.fieldContext_Transaction_uploadSource(ctx, field)
-			case "amount":
-				return ec.fieldContext_Transaction_amount(ctx, field)
-			case "payeeId":
-				return ec.fieldContext_Transaction_payeeId(ctx, field)
-			case "payee":
-				return ec.fieldContext_Transaction_payee(ctx, field)
-			case "payeeFull":
-				return ec.fieldContext_Transaction_payeeFull(ctx, field)
-			case "isoCurrencyCode":
-				return ec.fieldContext_Transaction_isoCurrencyCode(ctx, field)
-			case "date":
-				return ec.fieldContext_Transaction_date(ctx, field)
-			case "description":
-				return ec.fieldContext_Transaction_description(ctx, field)
-			case "type":
-				return ec.fieldContext_Transaction_type(ctx, field)
-			case "checkNumber":
-				return ec.fieldContext_Transaction_checkNumber(ctx, field)
-			case "updated":
-				return ec.fieldContext_Transaction_updated(ctx, field)
-			case "merchant":
-				return ec.fieldContext_Transaction_merchant(ctx, field)
+			case "edges":
+				return ec.fieldContext_TransactionConnection_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_TransactionConnection_pageInfo(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Transaction", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type TransactionConnection", field.Name)
 		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_User_transactions_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -5795,7 +6174,7 @@ func (ec *executionContext) _User_accounts(ctx context.Context, field graphql.Co
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.User().Accounts(rctx, obj)
+		return ec.resolvers.User().Accounts(rctx, obj, fc.Args["page"].(*paging.PageArgs))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5807,12 +6186,12 @@ func (ec *executionContext) _User_accounts(ctx context.Context, field graphql.Co
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]db.Account)
+	res := resTmp.(*AccountConnection)
 	fc.Result = res
-	return ec.marshalNAccount2ᚕgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐAccountᚄ(ctx, field.Selections, res)
+	return ec.marshalNAccountConnection2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐAccountConnection(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_User_accounts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_User_accounts(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "User",
 		Field:      field,
@@ -5820,23 +6199,24 @@ func (ec *executionContext) fieldContext_User_accounts(_ context.Context, field 
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_Account_id(ctx, field)
-			case "sourceId":
-				return ec.fieldContext_Account_sourceId(ctx, field)
-			case "uploadSource":
-				return ec.fieldContext_Account_uploadSource(ctx, field)
-			case "type":
-				return ec.fieldContext_Account_type(ctx, field)
-			case "name":
-				return ec.fieldContext_Account_name(ctx, field)
-			case "routingNumber":
-				return ec.fieldContext_Account_routingNumber(ctx, field)
-			case "transactions":
-				return ec.fieldContext_Account_transactions(ctx, field)
+			case "edges":
+				return ec.fieldContext_AccountConnection_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_AccountConnection_pageInfo(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Account", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type AccountConnection", field.Name)
 		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_User_accounts_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -5855,7 +6235,7 @@ func (ec *executionContext) _User_merchants(ctx context.Context, field graphql.C
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.User().Merchants(rctx, obj)
+		return ec.resolvers.User().Merchants(rctx, obj, fc.Args["page"].(*paging.PageArgs))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5867,12 +6247,12 @@ func (ec *executionContext) _User_merchants(ctx context.Context, field graphql.C
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]db.Merchant)
+	res := resTmp.(*MerchantConnection)
 	fc.Result = res
-	return ec.marshalNMerchant2ᚕgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐMerchantᚄ(ctx, field.Selections, res)
+	return ec.marshalNMerchantConnection2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐMerchantConnection(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_User_merchants(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_User_merchants(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "User",
 		Field:      field,
@@ -5880,19 +6260,24 @@ func (ec *executionContext) fieldContext_User_merchants(_ context.Context, field
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_Merchant_id(ctx, field)
-			case "name":
-				return ec.fieldContext_Merchant_name(ctx, field)
-			case "sourceId":
-				return ec.fieldContext_Merchant_sourceId(ctx, field)
-			case "ownerId":
-				return ec.fieldContext_Merchant_ownerId(ctx, field)
-			case "transactions":
-				return ec.fieldContext_Merchant_transactions(ctx, field)
+			case "edges":
+				return ec.fieldContext_MerchantConnection_edges(ctx, field)
+			case "pageInfo":
+				return ec.fieldContext_MerchantConnection_pageInfo(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Merchant", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type MerchantConnection", field.Name)
 		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_User_merchants_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -7877,6 +8262,40 @@ func (ec *executionContext) fieldContext___Type_specifiedByURL(_ context.Context
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputDateFilter(ctx context.Context, obj interface{}) (DateFilter, error) {
+	var it DateFilter
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"startDate", "endDate"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "startDate":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("startDate"))
+			data, err := ec.unmarshalNDate2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.StartDate = data
+		case "endDate":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("endDate"))
+			data, err := ec.unmarshalNDate2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.EndDate = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputLoginInput(ctx context.Context, obj interface{}) (LoginInput, error) {
 	var it LoginInput
 	asMap := map[string]interface{}{}
@@ -7993,27 +8412,27 @@ func (ec *executionContext) unmarshalInputStatsInput(ctx context.Context, obj in
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"startDate", "endDate"}
+	fieldsInOrder := [...]string{"filter", "page"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "startDate":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("startDate"))
-			data, err := ec.unmarshalNDate2string(ctx, v)
+		case "filter":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("filter"))
+			data, err := ec.unmarshalNDateFilter2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐDateFilter(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.StartDate = data
-		case "endDate":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("endDate"))
-			data, err := ec.unmarshalNDate2string(ctx, v)
+			it.Filter = data
+		case "page":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("page"))
+			data, err := ec.unmarshalOPageArgs2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋpagingᚐPageArgs(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.EndDate = data
+			it.Page = data
 		}
 	}
 
@@ -8647,6 +9066,11 @@ func (ec *executionContext) _NetStats(ctx context.Context, sel ast.SelectionSet,
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "transactions":
+			out.Values[i] = ec._NetStats_transactions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9055,7 +9479,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "stats":
+		case "spending":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -9064,7 +9488,51 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_stats(ctx, field)
+				res = ec._Query_spending(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "income":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_income(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "net":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_net(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -9152,23 +9620,23 @@ func (ec *executionContext) _SpendingStats(ctx context.Context, sel ast.Selectio
 	return out
 }
 
-var statsResponseImplementors = []string{"StatsResponse"}
+var statsImplementors = []string{"Stats"}
 
-func (ec *executionContext) _StatsResponse(ctx context.Context, sel ast.SelectionSet, obj *StatsResponse) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, statsResponseImplementors)
+func (ec *executionContext) _Stats(ctx context.Context, sel ast.SelectionSet, obj *Stats) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, statsImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferred := make(map[string]*graphql.FieldSet)
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("StatsResponse")
+			out.Values[i] = graphql.MarshalString("Stats")
 		case "spending":
-			out.Values[i] = ec._StatsResponse_spending(ctx, field, obj)
+			out.Values[i] = ec._Stats_spending(ctx, field, obj)
 		case "income":
-			out.Values[i] = ec._StatsResponse_income(ctx, field, obj)
+			out.Values[i] = ec._Stats_income(ctx, field, obj)
 		case "net":
-			out.Values[i] = ec._StatsResponse_net(ctx, field, obj)
+			out.Values[i] = ec._Stats_net(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10376,54 +10844,6 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 
 // region    ***************************** type.gotpl *****************************
 
-func (ec *executionContext) marshalNAccount2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐAccount(ctx context.Context, sel ast.SelectionSet, v db.Account) graphql.Marshaler {
-	return ec._Account(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNAccount2ᚕgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐAccountᚄ(ctx context.Context, sel ast.SelectionSet, v []db.Account) graphql.Marshaler {
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNAccount2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐAccount(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
 func (ec *executionContext) marshalNAccount2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐAccount(ctx context.Context, sel ast.SelectionSet, v *db.Account) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -10526,6 +10946,11 @@ func (ec *executionContext) marshalNDate2string(ctx context.Context, sel ast.Sel
 	return res
 }
 
+func (ec *executionContext) unmarshalNDateFilter2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐDateFilter(ctx context.Context, v interface{}) (*DateFilter, error) {
+	res, err := ec.unmarshalInputDateFilter(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNFloat2float64(ctx context.Context, v interface{}) (float64, error) {
 	res, err := graphql.UnmarshalFloatContext(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -10556,6 +10981,20 @@ func (ec *executionContext) marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx c
 	return res
 }
 
+func (ec *executionContext) marshalNIncomeStats2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐIncomeStats(ctx context.Context, sel ast.SelectionSet, v IncomeStats) graphql.Marshaler {
+	return ec._IncomeStats(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNIncomeStats2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐIncomeStats(ctx context.Context, sel ast.SelectionSet, v *IncomeStats) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._IncomeStats(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v interface{}) (int, error) {
 	res, err := graphql.UnmarshalInt(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -10578,50 +11017,6 @@ func (ec *executionContext) unmarshalNLoginInput2githubᚗcomᚋproctorincᚋban
 
 func (ec *executionContext) marshalNMerchant2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐMerchant(ctx context.Context, sel ast.SelectionSet, v db.Merchant) graphql.Marshaler {
 	return ec._Merchant(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNMerchant2ᚕgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐMerchantᚄ(ctx context.Context, sel ast.SelectionSet, v []db.Merchant) graphql.Marshaler {
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNMerchant2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐMerchant(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
 }
 
 func (ec *executionContext) marshalNMerchant2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐMerchant(ctx context.Context, sel ast.SelectionSet, v *db.Merchant) graphql.Marshaler {
@@ -10696,6 +11091,20 @@ func (ec *executionContext) marshalNMerchantEdge2ᚕgithubᚗcomᚋproctorincᚋ
 	return ret
 }
 
+func (ec *executionContext) marshalNNetStats2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐNetStats(ctx context.Context, sel ast.SelectionSet, v NetStats) graphql.Marshaler {
+	return ec._NetStats(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNNetStats2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐNetStats(ctx context.Context, sel ast.SelectionSet, v *NetStats) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._NetStats(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋpagingᚐPageInfo(ctx context.Context, sel ast.SelectionSet, v *paging.PageInfo) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -10711,23 +11120,23 @@ func (ec *executionContext) unmarshalNRegisterInput2githubᚗcomᚋproctorincᚋ
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNStatsInput2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐStatsInput(ctx context.Context, v interface{}) (StatsInput, error) {
-	res, err := ec.unmarshalInputStatsInput(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
+func (ec *executionContext) marshalNSpendingStats2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐSpendingStats(ctx context.Context, sel ast.SelectionSet, v SpendingStats) graphql.Marshaler {
+	return ec._SpendingStats(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNStatsResponse2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐStatsResponse(ctx context.Context, sel ast.SelectionSet, v StatsResponse) graphql.Marshaler {
-	return ec._StatsResponse(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNStatsResponse2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐStatsResponse(ctx context.Context, sel ast.SelectionSet, v *StatsResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNSpendingStats2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐSpendingStats(ctx context.Context, sel ast.SelectionSet, v *SpendingStats) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._StatsResponse(ctx, sel, v)
+	return ec._SpendingStats(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNStatsInput2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋgeneratedᚐStatsInput(ctx context.Context, v interface{}) (StatsInput, error) {
+	res, err := ec.unmarshalInputStatsInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v interface{}) (string, error) {
@@ -10747,50 +11156,6 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 
 func (ec *executionContext) marshalNTransaction2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐTransaction(ctx context.Context, sel ast.SelectionSet, v db.Transaction) graphql.Marshaler {
 	return ec._Transaction(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNTransaction2ᚕgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐTransactionᚄ(ctx context.Context, sel ast.SelectionSet, v []db.Transaction) graphql.Marshaler {
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNTransaction2githubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐTransaction(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
 }
 
 func (ec *executionContext) marshalNTransaction2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋdbᚐTransaction(ctx context.Context, sel ast.SelectionSet, v *db.Transaction) graphql.Marshaler {

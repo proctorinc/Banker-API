@@ -74,51 +74,84 @@ WHERE ownerId = $1
 ORDER BY date DESC
 LIMIT $2 OFFSET @start;
 
--- name: CountTransactions :one
-SELECT count(id) FROM transactions AS a
-WHERE ownerId = $1;
+-- name: ListTransactionsByDates :many
+SELECT * FROM transactions
+WHERE ownerId = $1 AND date BETWEEN @startdate AND @enddate
+ORDER BY date DESC
+LIMIT $2 OFFSET @start;
 
 -- name: ListTransactionsByAccountIds :many
 SELECT t.* FROM transactions AS t, accounts AS a
-WHERE t.accountId = a.id AND a.id::varchar = ANY(@accountIds::varchar[])
+WHERE t.accountId = a.id
+    AND a.id::varchar = ANY(@accountIds::varchar[])
 ORDER BY date DESC
 LIMIT $1 OFFSET @start;
 
 -- name: ListTransactionsByMerchantIds :many
 SELECT t.* FROM transactions AS t, merchants AS m
-WHERE t.merchantId = m.id AND m.id::varchar = ANY(@merchantIds::varchar[])
+WHERE t.merchantId = m.id
+    AND m.id::varchar = ANY(@merchantIds::varchar[])
 ORDER BY date DESC
 LIMIT $1 OFFSET @start;
 
--- name: CountTransactionsByAccountIds :many
-SELECT count(t.id), a.id as accountId FROM transactions AS t, accounts AS a
-WHERE t.accountId = a.id AND a.id::varchar = ANY(@accountIds::varchar[])
-GROUP BY a.id;
-
--- name: CountTransactionsByMerchantIds :many
-SELECT count(t.id), m.id as merchantId FROM transactions AS t, merchants AS m
-WHERE t.merchantId = m.id AND m.id::varchar = ANY(@merchantIds::varchar[])
-GROUP BY m.id;
-
 -- name: ListSpendingTransactions :many
 SELECT * FROM transactions
-WHERE ownerId = $1 AND amount < 0 AND date BETWEEN @startdate AND @enddate
-ORDER BY date DESC;
+WHERE ownerId = $1
+    AND amount < 0
+    AND date BETWEEN @startdate AND @enddate
+ORDER BY date DESC
+LIMIT $1 OFFSET @start;
 
 -- name: ListIncomeTransactions :many
 SELECT * FROM transactions
-WHERE ownerId = $1 AND amount >= 0 AND date BETWEEN @startdate AND @enddate
-ORDER BY date DESC;
+WHERE ownerId = $1
+    AND amount >= 0 AND date BETWEEN @startdate AND @enddate
+ORDER BY date DESC
+LIMIT $2 OFFSET @start;
 
 -- name: ListAccountSpendingTransactions :many
 SELECT * FROM transactions
 WHERE ownerId = $1 AND accountId = $2 AND amount < 0
-ORDER BY date DESC;
+ORDER BY date DESC
+LIMIT $2 OFFSET @start;
 
 -- name: ListAccountIncomeTransactions :many
 SELECT * FROM transactions
 WHERE ownerId = $1 AND accountId = $2 AND amount >= 0
-ORDER BY date;
+ORDER BY date
+LIMIT $2 OFFSET @start;
+
+-- name: CountTransactions :one
+SELECT count(id) FROM transactions AS a
+WHERE ownerId = $1;
+
+-- name: CountTransactionsByDates :one
+SELECT count(id) FROM transactions AS a
+WHERE ownerId = $1 AND date BETWEEN @startdate AND @enddate;
+
+-- name: CountTransactionsByAccountIds :many
+SELECT count(t.id), a.id as accountId FROM transactions AS t, accounts AS a
+WHERE t.accountId = a.id
+    AND a.id::varchar = ANY(@accountIds::varchar[])
+GROUP BY a.id;
+
+-- name: CountTransactionsByMerchantIds :many
+SELECT count(t.id), m.id as merchantId FROM transactions AS t, merchants AS m
+WHERE t.merchantId = m.id
+    AND m.id::varchar = ANY(@merchantIds::varchar[])
+GROUP BY m.id;
+
+-- name: CountIncomeTransactions :one
+SELECT count(t.id) as merchantId FROM transactions AS t
+WHERE ownerId = $1
+    AND amount >= 0
+    AND date BETWEEN @startdate AND @enddate;
+
+-- name: CountSpendingTransactions :one
+SELECT count(t.id) as merchantId FROM transactions AS t
+WHERE ownerId = $1
+    AND amount < 0
+    AND date BETWEEN @startdate AND @enddate;
 
 -- name: UpsertTransaction :one
 INSERT INTO transactions (
@@ -229,6 +262,11 @@ WHERE ownerId = $1 AND amount < 0 AND date BETWEEN @startdate AND @enddate;
 -- name: GetTotalIncome :one
 SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions
 WHERE ownerId = $1 AND amount > 0 AND date BETWEEN @startdate AND @enddate;
+
+-- name: GetNetIncome :one
+SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions
+WHERE ownerId = $1 AND date BETWEEN @startdate AND @enddate;
+
 
 -- name: GetAccountSpending :one
 SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions

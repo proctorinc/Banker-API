@@ -13,7 +13,9 @@ type Query {
     transactions(page: PageArgs): TransactionConnection! @isAuthenticated
     merchant(id: ID!): Merchant @isAuthenticated
     merchants(page: PageArgs): MerchantConnection! @isAuthenticated
-    stats(input: StatsInput!): StatsResponse! @isAuthenticated
+    spending(input: StatsInput!): SpendingStats! @isAuthenticated
+    income(input: StatsInput!): IncomeStats! @isAuthenticated
+    net(input: StatsInput!): NetStats! @isAuthenticated
 }
 
 type Mutation {
@@ -36,29 +38,9 @@ type UploadStats {
     failed: Int!
 }
 
-type StatsResponse {
-    spending: SpendingStats
-    income: IncomeStats
-    net: NetStats
-}
-
-type SpendingStats {
-    total: Float!
-    transactions: [Transaction!]!
-}
-
-type IncomeStats {
-    total: Float!
-    transactions: [Transaction!]!
-}
-
-type NetStats {
-    total: Float!
-}
-
 input StatsInput {
-    startDate: Date!
-    endDate: Date!
+    filter: DateFilter!
+    page: PageArgs
 }
 
 input LoginInput {
@@ -70,4 +52,9 @@ input RegisterInput {
     username: String!
     email: String!
     password: String!
+}
+
+input DateFilter {
+    startDate: Date!
+    endDate: Date!
 }

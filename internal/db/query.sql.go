@@ -26,6 +26,26 @@ func (q *Queries) CountAccounts(ctx context.Context, ownerid uuid.UUID) (int64, 
 	return count, err
 }
 
+const countIncomeTransactions = `-- name: CountIncomeTransactions :one
+SELECT count(t.id) as merchantId FROM transactions AS t
+WHERE ownerId = $1
+    AND amount >= 0
+    AND date BETWEEN $2 AND $3
+`
+
+type CountIncomeTransactionsParams struct {
+	Ownerid   uuid.UUID
+	Startdate time.Time
+	Enddate   time.Time
+}
+
+func (q *Queries) CountIncomeTransactions(ctx context.Context, arg CountIncomeTransactionsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countIncomeTransactions, arg.Ownerid, arg.Startdate, arg.Enddate)
+	var merchantid int64
+	err := row.Scan(&merchantid)
+	return merchantid, err
+}
+
 const countMerchants = `-- name: CountMerchants :one
 SELECT count(id) FROM merchants
 WHERE ownerId = $1
@@ -36,6 +56,26 @@ func (q *Queries) CountMerchants(ctx context.Context, ownerid uuid.UUID) (int64,
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const countSpendingTransactions = `-- name: CountSpendingTransactions :one
+SELECT count(t.id) as merchantId FROM transactions AS t
+WHERE ownerId = $1
+    AND amount < 0
+    AND date BETWEEN $2 AND $3
+`
+
+type CountSpendingTransactionsParams struct {
+	Ownerid   uuid.UUID
+	Startdate time.Time
+	Enddate   time.Time
+}
+
+func (q *Queries) CountSpendingTransactions(ctx context.Context, arg CountSpendingTransactionsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countSpendingTransactions, arg.Ownerid, arg.Startdate, arg.Enddate)
+	var merchantid int64
+	err := row.Scan(&merchantid)
+	return merchantid, err
 }
 
 const countTransactions = `-- name: CountTransactions :one
@@ -52,7 +92,8 @@ func (q *Queries) CountTransactions(ctx context.Context, ownerid uuid.UUID) (int
 
 const countTransactionsByAccountIds = `-- name: CountTransactionsByAccountIds :many
 SELECT count(t.id), a.id as accountId FROM transactions AS t, accounts AS a
-WHERE t.accountId = a.id AND a.id::varchar = ANY($1::varchar[])
+WHERE t.accountId = a.id
+    AND a.id::varchar = ANY($1::varchar[])
 GROUP BY a.id
 `
 
@@ -84,9 +125,28 @@ func (q *Queries) CountTransactionsByAccountIds(ctx context.Context, accountids 
 	return items, nil
 }
 
+const countTransactionsByDates = `-- name: CountTransactionsByDates :one
+SELECT count(id) FROM transactions AS a
+WHERE ownerId = $1 AND date BETWEEN $2 AND $3
+`
+
+type CountTransactionsByDatesParams struct {
+	Ownerid   uuid.UUID
+	Startdate time.Time
+	Enddate   time.Time
+}
+
+func (q *Queries) CountTransactionsByDates(ctx context.Context, arg CountTransactionsByDatesParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countTransactionsByDates, arg.Ownerid, arg.Startdate, arg.Enddate)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countTransactionsByMerchantIds = `-- name: CountTransactionsByMerchantIds :many
 SELECT count(t.id), m.id as merchantId FROM transactions AS t, merchants AS m
-WHERE t.merchantId = m.id AND m.id::varchar = ANY($1::varchar[])
+WHERE t.merchantId = m.id
+    AND m.id::varchar = ANY($1::varchar[])
 GROUP BY m.id
 `
 
@@ -402,6 +462,24 @@ func (q *Queries) GetMerchantBySourceId(ctx context.Context, sourceid sql.NullSt
 	return i, err
 }
 
+const getNetIncome = `-- name: GetNetIncome :one
+SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions
+WHERE ownerId = $1 AND date BETWEEN $2 AND $3
+`
+
+type GetNetIncomeParams struct {
+	Ownerid   uuid.UUID
+	Startdate time.Time
+	Enddate   time.Time
+}
+
+func (q *Queries) GetNetIncome(ctx context.Context, arg GetNetIncomeParams) (interface{}, error) {
+	row := q.db.QueryRowContext(ctx, getNetIncome, arg.Ownerid, arg.Startdate, arg.Enddate)
+	var sum interface{}
+	err := row.Scan(&sum)
+	return sum, err
+}
+
 const getTotalIncome = `-- name: GetTotalIncome :one
 SELECT COALESCE(SUM(amount), 0) as Sum FROM transactions
 WHERE ownerId = $1 AND amount > 0 AND date BETWEEN $2 AND $3
@@ -519,15 +597,17 @@ const listAccountIncomeTransactions = `-- name: ListAccountIncomeTransactions :m
 SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid FROM transactions
 WHERE ownerId = $1 AND accountId = $2 AND amount >= 0
 ORDER BY date
+LIMIT $2 OFFSET $3
 `
 
 type ListAccountIncomeTransactionsParams struct {
-	Ownerid   uuid.UUID
-	Accountid uuid.UUID
+	Ownerid uuid.UUID
+	Limit   int32
+	Start   int32
 }
 
 func (q *Queries) ListAccountIncomeTransactions(ctx context.Context, arg ListAccountIncomeTransactionsParams) ([]Transaction, error) {
-	rows, err := q.db.QueryContext(ctx, listAccountIncomeTransactions, arg.Ownerid, arg.Accountid)
+	rows, err := q.db.QueryContext(ctx, listAccountIncomeTransactions, arg.Ownerid, arg.Limit, arg.Start)
 	if err != nil {
 		return nil, err
 	}
@@ -570,15 +650,17 @@ const listAccountSpendingTransactions = `-- name: ListAccountSpendingTransaction
 SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid FROM transactions
 WHERE ownerId = $1 AND accountId = $2 AND amount < 0
 ORDER BY date DESC
+LIMIT $2 OFFSET $3
 `
 
 type ListAccountSpendingTransactionsParams struct {
-	Ownerid   uuid.UUID
-	Accountid uuid.UUID
+	Ownerid uuid.UUID
+	Limit   int32
+	Start   int32
 }
 
 func (q *Queries) ListAccountSpendingTransactions(ctx context.Context, arg ListAccountSpendingTransactionsParams) ([]Transaction, error) {
-	rows, err := q.db.QueryContext(ctx, listAccountSpendingTransactions, arg.Ownerid, arg.Accountid)
+	rows, err := q.db.QueryContext(ctx, listAccountSpendingTransactions, arg.Ownerid, arg.Limit, arg.Start)
 	if err != nil {
 		return nil, err
 	}
@@ -664,18 +746,28 @@ func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]A
 
 const listIncomeTransactions = `-- name: ListIncomeTransactions :many
 SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid FROM transactions
-WHERE ownerId = $1 AND amount >= 0 AND date BETWEEN $2 AND $3
+WHERE ownerId = $1
+    AND amount >= 0 AND date BETWEEN $3 AND $4
 ORDER BY date DESC
+LIMIT $2 OFFSET $5
 `
 
 type ListIncomeTransactionsParams struct {
 	Ownerid   uuid.UUID
+	Limit     int32
 	Startdate time.Time
 	Enddate   time.Time
+	Start     int32
 }
 
 func (q *Queries) ListIncomeTransactions(ctx context.Context, arg ListIncomeTransactionsParams) ([]Transaction, error) {
-	rows, err := q.db.QueryContext(ctx, listIncomeTransactions, arg.Ownerid, arg.Startdate, arg.Enddate)
+	rows, err := q.db.QueryContext(ctx, listIncomeTransactions,
+		arg.Ownerid,
+		arg.Limit,
+		arg.Startdate,
+		arg.Enddate,
+		arg.Start,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -791,18 +883,27 @@ func (q *Queries) ListMerchantsByMerchantIds(ctx context.Context, merchantids []
 
 const listSpendingTransactions = `-- name: ListSpendingTransactions :many
 SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid FROM transactions
-WHERE ownerId = $1 AND amount < 0 AND date BETWEEN $2 AND $3
+WHERE ownerId = $1
+    AND amount < 0
+    AND date BETWEEN $2 AND $3
 ORDER BY date DESC
+LIMIT $1 OFFSET $4
 `
 
 type ListSpendingTransactionsParams struct {
-	Ownerid   uuid.UUID
+	Limit     int32
 	Startdate time.Time
 	Enddate   time.Time
+	Start     int32
 }
 
 func (q *Queries) ListSpendingTransactions(ctx context.Context, arg ListSpendingTransactionsParams) ([]Transaction, error) {
-	rows, err := q.db.QueryContext(ctx, listSpendingTransactions, arg.Ownerid, arg.Startdate, arg.Enddate)
+	rows, err := q.db.QueryContext(ctx, listSpendingTransactions,
+		arg.Limit,
+		arg.Startdate,
+		arg.Enddate,
+		arg.Start,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -896,7 +997,8 @@ func (q *Queries) ListTransactions(ctx context.Context, arg ListTransactionsPara
 
 const listTransactionsByAccountIds = `-- name: ListTransactionsByAccountIds :many
 SELECT t.id, t.sourceid, t.uploadsource, t.amount, t.payeeid, t.payee, t.payeefull, t.isocurrencycode, t.date, t.description, t.type, t.checknumber, t.updated, t.merchantid, t.ownerid, t.accountid FROM transactions AS t, accounts AS a
-WHERE t.accountId = a.id AND a.id::varchar = ANY($2::varchar[])
+WHERE t.accountId = a.id
+    AND a.id::varchar = ANY($2::varchar[])
 ORDER BY date DESC
 LIMIT $1 OFFSET $3
 `
@@ -947,9 +1049,71 @@ func (q *Queries) ListTransactionsByAccountIds(ctx context.Context, arg ListTran
 	return items, nil
 }
 
+const listTransactionsByDates = `-- name: ListTransactionsByDates :many
+SELECT id, sourceid, uploadsource, amount, payeeid, payee, payeefull, isocurrencycode, date, description, type, checknumber, updated, merchantid, ownerid, accountid FROM transactions
+WHERE ownerId = $1 AND date BETWEEN $3 AND $4
+ORDER BY date DESC
+LIMIT $2 OFFSET $5
+`
+
+type ListTransactionsByDatesParams struct {
+	Ownerid   uuid.UUID
+	Limit     int32
+	Startdate time.Time
+	Enddate   time.Time
+	Start     int32
+}
+
+func (q *Queries) ListTransactionsByDates(ctx context.Context, arg ListTransactionsByDatesParams) ([]Transaction, error) {
+	rows, err := q.db.QueryContext(ctx, listTransactionsByDates,
+		arg.Ownerid,
+		arg.Limit,
+		arg.Startdate,
+		arg.Enddate,
+		arg.Start,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Transaction
+	for rows.Next() {
+		var i Transaction
+		if err := rows.Scan(
+			&i.ID,
+			&i.Sourceid,
+			&i.Uploadsource,
+			&i.Amount,
+			&i.Payeeid,
+			&i.Payee,
+			&i.Payeefull,
+			&i.Isocurrencycode,
+			&i.Date,
+			&i.Description,
+			&i.Type,
+			&i.Checknumber,
+			&i.Updated,
+			&i.Merchantid,
+			&i.Ownerid,
+			&i.Accountid,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTransactionsByMerchantIds = `-- name: ListTransactionsByMerchantIds :many
 SELECT t.id, t.sourceid, t.uploadsource, t.amount, t.payeeid, t.payee, t.payeefull, t.isocurrencycode, t.date, t.description, t.type, t.checknumber, t.updated, t.merchantid, t.ownerid, t.accountid FROM transactions AS t, merchants AS m
-WHERE t.merchantId = m.id AND m.id::varchar = ANY($2::varchar[])
+WHERE t.merchantId = m.id
+    AND m.id::varchar = ANY($2::varchar[])
 ORDER BY date DESC
 LIMIT $1 OFFSET $3
 `

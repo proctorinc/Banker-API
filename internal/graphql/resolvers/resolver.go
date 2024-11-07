@@ -23,6 +23,7 @@ type userResolver struct{ *Resolver }
 type accountResolver struct{ *Resolver }
 type transactionResolver struct{ *Resolver }
 type merchantResolver struct{ *Resolver }
+type statsResolver struct{ *Resolver }
 
 func (r *Resolver) Mutation() gen.MutationResolver {
 	return &mutationResolver{r}
@@ -47,6 +48,10 @@ func (r *Resolver) Transaction() gen.TransactionResolver {
 func (r *Resolver) Merchant() gen.MerchantResolver {
 	return &merchantResolver{r}
 }
+
+// func (r *Resolver) Stats() gen.StatsResolver {
+// 	return &statsResolver{r}
+// }
 
 func (r *Resolver) PageInfo() gen.PageInfoResolver {
 	return &pageInfoResolver{r}

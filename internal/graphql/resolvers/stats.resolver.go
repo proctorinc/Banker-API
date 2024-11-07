@@ -2,88 +2,207 @@ package resolvers
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/proctorinc/banker/internal/auth"
 	"github.com/proctorinc/banker/internal/db"
 	gen "github.com/proctorinc/banker/internal/graphql/generated"
+	"github.com/proctorinc/banker/internal/graphql/paging"
 	"github.com/proctorinc/banker/internal/graphql/utils"
 )
 
-func (r *queryResolver) Stats(ctx context.Context, filter gen.StatsInput) (*gen.StatsResponse, error) {
+type StatsResolver struct {
+	Spending gen.SpendingStats
+	Income   gen.IncomeStats
+	Net      gen.NetStats
+}
+
+// Queries
+
+func (r *queryResolver) Spending(ctx context.Context, input gen.StatsInput) (*gen.SpendingStats, error) {
 	user := auth.GetCurrentUser(ctx)
-	startDate, err := time.Parse(time.RFC3339, filter.StartDate)
+	filter, err := parseStatsFilter(input.Filter)
 
 	if err != nil {
-		return nil, fmt.Errorf("Invalid date format. RFC3339 required")
+		return nil, err
 	}
 
-	endDate, err := time.Parse(time.RFC3339, filter.EndDate)
+	incomeTotal, err := r.Repository.GetTotalSpending(ctx, db.GetTotalSpendingParams{
+		Ownerid:   user.ID,
+		Startdate: filter.StartDate,
+		Enddate:   filter.EndDate,
+	})
 
 	if err != nil {
-		return nil, fmt.Errorf("Invalid date format. RFC3339 required")
+		return nil, err
+	}
+
+	result := &gen.SpendingStats{
+		Total: utils.FormatCurrencyFloat64(int32(incomeTotal.(int64))),
+	}
+
+	totalCount, err := r.Repository.CountSpendingTransactions(ctx, db.CountSpendingTransactionsParams{
+		Ownerid:   user.ID,
+		Startdate: filter.StartDate,
+		Enddate:   filter.EndDate,
+	})
+
+	if err != nil {
+		return result, nil
+	}
+
+	paginator := paging.NewOffsetPaginator(input.Page, totalCount)
+	transactionsResult := &gen.TransactionConnection{
+		PageInfo: &paginator.PageInfo,
+	}
+	start := int32(paginator.Offset)
+	limit := calculatePageLimit(input.Page)
+
+	incomeTransactions, err := r.Repository.ListIncomeTransactions(ctx, db.ListIncomeTransactionsParams{
+		Ownerid:   user.ID,
+		Startdate: filter.StartDate,
+		Enddate:   filter.EndDate,
+		Limit:     limit,
+		Start:     start,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	for i, row := range incomeTransactions {
+		transactionsResult.Edges = append(transactionsResult.Edges, gen.TransactionEdge{
+			Cursor: paging.EncodeOffsetCursor(paginator.Offset + i + 1),
+			Node:   &row,
+		})
+	}
+
+	result.Transactions = transactionsResult
+
+	return result, err
+}
+
+func (r *queryResolver) Income(ctx context.Context, input gen.StatsInput) (*gen.IncomeStats, error) {
+	user := auth.GetCurrentUser(ctx)
+	filter, err := parseStatsFilter(input.Filter)
+
+	if err != nil {
+		return nil, err
 	}
 
 	incomeTotal, err := r.Repository.GetTotalIncome(ctx, db.GetTotalIncomeParams{
 		Ownerid:   user.ID,
-		Startdate: startDate,
-		Enddate:   endDate,
+		Startdate: filter.StartDate,
+		Enddate:   filter.EndDate,
 	})
 
 	if err != nil {
 		return nil, err
 	}
+
+	result := &gen.IncomeStats{
+		Total: utils.FormatCurrencyFloat64(int32(incomeTotal.(int64))),
+	}
+
+	totalCount, err := r.Repository.CountIncomeTransactions(ctx, db.CountIncomeTransactionsParams{
+		Ownerid:   user.ID,
+		Startdate: filter.StartDate,
+		Enddate:   filter.EndDate,
+	})
+
+	if err != nil {
+		return result, nil
+	}
+
+	paginator := paging.NewOffsetPaginator(input.Page, totalCount)
+	transactionsResult := &gen.TransactionConnection{
+		PageInfo: &paginator.PageInfo,
+	}
+	start := int32(paginator.Offset)
+	limit := calculatePageLimit(input.Page)
 
 	incomeTransactions, err := r.Repository.ListIncomeTransactions(ctx, db.ListIncomeTransactionsParams{
 		Ownerid:   user.ID,
-		Startdate: startDate,
-		Enddate:   endDate,
+		Startdate: filter.StartDate,
+		Enddate:   filter.EndDate,
+		Limit:     limit,
+		Start:     start,
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	income := gen.IncomeStats{
-		Total:        utils.FormatCurrencyFloat64(int32(incomeTotal.(int64))),
-		Transactions: incomeTransactions,
+	for i, row := range incomeTransactions {
+		transactionsResult.Edges = append(transactionsResult.Edges, gen.TransactionEdge{
+			Cursor: paging.EncodeOffsetCursor(paginator.Offset + i + 1),
+			Node:   &row,
+		})
 	}
 
-	spendingTotal, err := r.Repository.GetTotalSpending(ctx, db.GetTotalSpendingParams{
+	result.Transactions = transactionsResult
+
+	return result, err
+}
+
+func (r *queryResolver) Net(ctx context.Context, input gen.StatsInput) (*gen.NetStats, error) {
+	user := auth.GetCurrentUser(ctx)
+	filter, err := parseStatsFilter(input.Filter)
+
+	if err != nil {
+		return nil, err
+	}
+
+	incomeTotal, err := r.Repository.GetNetIncome(ctx, db.GetNetIncomeParams{
 		Ownerid:   user.ID,
-		Startdate: startDate,
-		Enddate:   endDate,
+		Startdate: filter.StartDate,
+		Enddate:   filter.EndDate,
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	spendingTransactions, err := r.Repository.ListSpendingTransactions(ctx, db.ListSpendingTransactionsParams{
+	result := &gen.NetStats{
+		Total: utils.FormatCurrencyFloat64(int32(incomeTotal.(int64))),
+	}
+
+	totalCount, err := r.Repository.CountTransactionsByDates(ctx, db.CountTransactionsByDatesParams{
 		Ownerid:   user.ID,
-		Startdate: startDate,
-		Enddate:   endDate,
+		Startdate: filter.StartDate,
+		Enddate:   filter.EndDate,
+	})
+
+	if err != nil {
+		return result, nil
+	}
+
+	paginator := paging.NewOffsetPaginator(input.Page, totalCount)
+	transactionsResult := &gen.TransactionConnection{
+		PageInfo: &paginator.PageInfo,
+	}
+	start := int32(paginator.Offset)
+	limit := calculatePageLimit(input.Page)
+
+	incomeTransactions, err := r.Repository.ListTransactionsByDates(ctx, db.ListTransactionsByDatesParams{
+		Ownerid:   user.ID,
+		Startdate: filter.StartDate,
+		Enddate:   filter.EndDate,
+		Limit:     limit,
+		Start:     start,
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	spending := gen.SpendingStats{
-		Total:        utils.FormatCurrencyFloat64(int32(spendingTotal.(int64))),
-		Transactions: spendingTransactions,
+	for i, row := range incomeTransactions {
+		transactionsResult.Edges = append(transactionsResult.Edges, gen.TransactionEdge{
+			Cursor: paging.EncodeOffsetCursor(paginator.Offset + i + 1),
+			Node:   &row,
+		})
 	}
 
-	net := gen.NetStats{
-		Total: utils.FormatCurrencyFloat64(int32(incomeTotal.(int64)) + int32(spendingTotal.(int64))),
-	}
+	result.Transactions = transactionsResult
 
-	response := &gen.StatsResponse{
-		Spending: &spending,
-		Income:   &income,
-		Net:      &net,
-	}
-
-	return response, nil
+	return result, err
 }

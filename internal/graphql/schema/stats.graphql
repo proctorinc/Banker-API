@@ -1,0 +1,20 @@
+type Stats {
+    spending: SpendingStats
+    income: IncomeStats
+    net: NetStats
+}
+
+type SpendingStats {
+    total: Float!
+    transactions(page: PageArgs): TransactionConnection!
+}
+
+type IncomeStats {
+    total: Float!
+    transactions(page: PageArgs): TransactionConnection!
+}
+
+type NetStats {
+    total: Float!
+    transactions(page: PageArgs): TransactionConnection!
+}
