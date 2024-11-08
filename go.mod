@@ -16,7 +16,10 @@ require (
 	golang.org/x/text v0.17.0
 )
 
-require github.com/pkg/errors v0.8.1 // indirect
+require (
+	github.com/gin-contrib/cors v1.7.2 // indirect
+	github.com/pkg/errors v0.8.1 // indirect
+)
 
 require (
 	github.com/aclindsa/xml v0.0.0-20201125035057-bbd5c9ec99ac // indirect

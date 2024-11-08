@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	cors "github.com/proctorinc/banker/internal"
 	"github.com/proctorinc/banker/internal/auth"
 	"github.com/proctorinc/banker/internal/dataloaders"
 	"github.com/proctorinc/banker/internal/db"
@@ -25,6 +26,7 @@ func main() {
 	queryHandler := graphql.GraphqlHandler(repo, retriever)
 
 	r := gin.Default()
+	r.Use(cors.Cors())
 	r.Use(auth.Middleware(repo))
 	r.POST("/query", dlMiddleware(queryHandler))
 	r.GET("/", graphql.NewPlaygroundHandler())
