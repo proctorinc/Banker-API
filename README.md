@@ -5,6 +5,7 @@ Banker is a GraphQL banking API for fetching bank account and transaction data a
 - gin-gonic > HTTP web framework (https://github.com/gin-gonic/gin)
 - gqlgen > GraphQL code generation (https://github.com/99designs/gqlgen)
 - dataloaden > GraphQL dataloader code generation (https://github.com/vektah/dataloaden)
+- sqlc > SQL model/query code generation (https://github.com/sqlc-dev/sqlc)
 
 
 ## Setup
