@@ -40,7 +40,6 @@ type UploadStats {
 
 input StatsInput {
     filter: DateFilter!
-    page: PageArgs
 }
 
 input LoginInput {

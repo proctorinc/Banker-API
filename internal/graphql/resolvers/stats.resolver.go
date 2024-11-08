@@ -16,10 +16,20 @@ type StatsResolver struct {
 	Net      gen.NetStats
 }
 
+type FakePageArgs struct {
+	First int
+	After *string
+}
+
+type Page struct {
+	First int
+}
+
 // Queries
 
 func (r *queryResolver) Spending(ctx context.Context, input gen.StatsInput) (*gen.SpendingStats, error) {
 	user := auth.GetCurrentUser(ctx)
+	pageArgs := getPageArgs(ctx, "transactions")
 	filter, err := parseStatsFilter(input.Filter)
 
 	if err != nil {
@@ -50,12 +60,12 @@ func (r *queryResolver) Spending(ctx context.Context, input gen.StatsInput) (*ge
 		return result, nil
 	}
 
-	paginator := paging.NewOffsetPaginator(input.Page, totalCount)
+	paginator := paging.NewOffsetPaginator(pageArgs, totalCount)
 	transactionsResult := &gen.TransactionConnection{
 		PageInfo: &paginator.PageInfo,
 	}
 	start := int32(paginator.Offset)
-	limit := calculatePageLimit(input.Page)
+	limit := calculatePageLimit(pageArgs)
 
 	incomeTransactions, err := r.Repository.ListIncomeTransactions(ctx, db.ListIncomeTransactionsParams{
 		Ownerid:   user.ID,
@@ -83,6 +93,7 @@ func (r *queryResolver) Spending(ctx context.Context, input gen.StatsInput) (*ge
 
 func (r *queryResolver) Income(ctx context.Context, input gen.StatsInput) (*gen.IncomeStats, error) {
 	user := auth.GetCurrentUser(ctx)
+	pageArgs := getPageArgs(ctx, "transactions")
 	filter, err := parseStatsFilter(input.Filter)
 
 	if err != nil {
@@ -113,12 +124,12 @@ func (r *queryResolver) Income(ctx context.Context, input gen.StatsInput) (*gen.
 		return result, nil
 	}
 
-	paginator := paging.NewOffsetPaginator(input.Page, totalCount)
+	paginator := paging.NewOffsetPaginator(pageArgs, totalCount)
 	transactionsResult := &gen.TransactionConnection{
 		PageInfo: &paginator.PageInfo,
 	}
 	start := int32(paginator.Offset)
-	limit := calculatePageLimit(input.Page)
+	limit := calculatePageLimit(pageArgs)
 
 	incomeTransactions, err := r.Repository.ListIncomeTransactions(ctx, db.ListIncomeTransactionsParams{
 		Ownerid:   user.ID,
@@ -146,6 +157,7 @@ func (r *queryResolver) Income(ctx context.Context, input gen.StatsInput) (*gen.
 
 func (r *queryResolver) Net(ctx context.Context, input gen.StatsInput) (*gen.NetStats, error) {
 	user := auth.GetCurrentUser(ctx)
+	pageArgs := getPageArgs(ctx, "transactions")
 	filter, err := parseStatsFilter(input.Filter)
 
 	if err != nil {
@@ -176,12 +188,12 @@ func (r *queryResolver) Net(ctx context.Context, input gen.StatsInput) (*gen.Net
 		return result, nil
 	}
 
-	paginator := paging.NewOffsetPaginator(input.Page, totalCount)
+	paginator := paging.NewOffsetPaginator(pageArgs, totalCount)
 	transactionsResult := &gen.TransactionConnection{
 		PageInfo: &paginator.PageInfo,
 	}
 	start := int32(paginator.Offset)
-	limit := calculatePageLimit(input.Page)
+	limit := calculatePageLimit(pageArgs)
 
 	incomeTransactions, err := r.Repository.ListTransactionsByDates(ctx, db.ListTransactionsByDatesParams{
 		Ownerid:   user.ID,

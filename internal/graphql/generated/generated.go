@@ -1219,7 +1219,6 @@ type UploadStats {
 
 input StatsInput {
     filter: DateFilter!
-    page: PageArgs
 }
 
 input LoginInput {
@@ -8412,7 +8411,7 @@ func (ec *executionContext) unmarshalInputStatsInput(ctx context.Context, obj in
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"filter", "page"}
+	fieldsInOrder := [...]string{"filter"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -8426,13 +8425,6 @@ func (ec *executionContext) unmarshalInputStatsInput(ctx context.Context, obj in
 				return it, err
 			}
 			it.Filter = data
-		case "page":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("page"))
-			data, err := ec.unmarshalOPageArgs2ᚖgithubᚗcomᚋproctorincᚋbankerᚋinternalᚋgraphqlᚋpagingᚐPageArgs(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Page = data
 		}
 	}
 

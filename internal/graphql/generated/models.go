@@ -71,8 +71,7 @@ type Stats struct {
 }
 
 type StatsInput struct {
-	Filter *DateFilter      `json:"filter"`
-	Page   *paging.PageArgs `json:"page,omitempty"`
+	Filter *DateFilter `json:"filter"`
 }
 
 type TransactionConnection struct {

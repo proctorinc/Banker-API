@@ -1,10 +1,12 @@
 package resolvers
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"time"
 
+	"github.com/99designs/gqlgen/graphql"
 	gen "github.com/proctorinc/banker/internal/graphql/generated"
 	"github.com/proctorinc/banker/internal/graphql/paging"
 )
@@ -43,4 +45,31 @@ func parseStatsFilter(input *gen.DateFilter) (*StatsFilter, error) {
 	}
 
 	return filter, nil
+}
+
+func getPageArgs(ctx context.Context, fieldName string) *paging.PageArgs {
+	pageArgs := &paging.PageArgs{
+		First: nil,
+		After: nil,
+	}
+
+	for _, field := range graphql.CollectFieldsCtx(ctx, nil) {
+		if field.Name == fieldName {
+			requestVariables := graphql.GetOperationContext(ctx).Variables
+			args := field.ArgumentMap(requestVariables)
+
+			if pageArgsMap, ok := args["page"].(map[string]any); ok {
+				if first, ok := pageArgsMap["first"].(int64); ok {
+					firstInt := int(first)
+					pageArgs.First = &firstInt
+				}
+
+				if after, ok := pageArgsMap["after"].(string); ok {
+					pageArgs.After = &after
+				}
+			}
+		}
+	}
+
+	return pageArgs
 }
