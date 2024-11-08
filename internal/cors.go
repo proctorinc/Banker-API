@@ -12,5 +12,7 @@ func Cors() gin.HandlerFunc {
 		"http://localhost:5173",
 	}
 
+	corsConfig.AllowCredentials = true
+
 	return cors.New(corsConfig)
 }
