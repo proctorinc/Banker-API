@@ -2,6 +2,7 @@ type Stats {
     spending: SpendingStats
     income: IncomeStats
     net: NetStats
+    # transactions(page: PageArgs): TransactionConnection! @isAuthenticated
 }
 
 type SpendingStats {

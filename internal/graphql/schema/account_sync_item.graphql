@@ -1,0 +1,5 @@
+type AccountSyncItem {
+    id: ID!
+    date: Date!
+    uploadSource: String!
+}

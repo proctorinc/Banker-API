@@ -1,0 +1,7 @@
+type MonthItem {
+    id: String!
+    name: String!
+    year: String!
+    start: Date!
+    end: Date!
+}

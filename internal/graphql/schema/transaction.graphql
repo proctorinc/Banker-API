@@ -1,7 +1,6 @@
 type Transaction {
     id: ID!
     sourceId: String!
-    uploadSource: String!
     amount: Float!
     payeeId: String
     payee: String

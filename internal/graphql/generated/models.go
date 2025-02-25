@@ -17,9 +17,47 @@ type AccountEdge struct {
 	Node   *db.Account `json:"node"`
 }
 
+type CreateFundInput struct {
+	Type string  `json:"type"`
+	Name string  `json:"name"`
+	Goal float64 `json:"goal"`
+}
+
 type DateFilter struct {
 	StartDate string `json:"startDate"`
 	EndDate   string `json:"endDate"`
+}
+
+type FundAllocationConnection struct {
+	Edges    []FundAllocationEdge `json:"edges"`
+	PageInfo *paging.PageInfo     `json:"pageInfo"`
+}
+
+type FundAllocationEdge struct {
+	Cursor *string            `json:"cursor,omitempty"`
+	Node   *db.FundAllocation `json:"node"`
+}
+
+type FundConnection struct {
+	Edges    []FundEdge       `json:"edges"`
+	PageInfo *paging.PageInfo `json:"pageInfo"`
+}
+
+type FundEdge struct {
+	Cursor *string  `json:"cursor,omitempty"`
+	Node   *db.Fund `json:"node"`
+}
+
+type FundsResponse struct {
+	Stats *FundsStats     `json:"stats"`
+	Funds *FundConnection `json:"funds"`
+}
+
+type FundsStats struct {
+	TotalSavings float64 `json:"totalSavings"`
+	Saved        float64 `json:"saved"`
+	Spent        float64 `json:"spent"`
+	Unallocated  float64 `json:"unallocated"`
 }
 
 type IncomeStats struct {
@@ -40,6 +78,14 @@ type MerchantConnection struct {
 type MerchantEdge struct {
 	Cursor *string      `json:"cursor,omitempty"`
 	Node   *db.Merchant `json:"node"`
+}
+
+type MonthItem struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Year  string `json:"year"`
+	Start string `json:"start"`
+	End   string `json:"end"`
 }
 
 type Mutation struct {

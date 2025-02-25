@@ -32,10 +32,6 @@ func (r *transactionResolver) SourceId(ctx context.Context, transaction *db.Tran
 	return transaction.Sourceid, nil
 }
 
-func (r *transactionResolver) UploadSource(ctx context.Context, transaction *db.Transaction) (string, error) {
-	return string(transaction.Uploadsource), nil
-}
-
 func (r *transactionResolver) Amount(ctx context.Context, transaction *db.Transaction) (float64, error) {
 	return utils.FormatCurrencyFloat64(transaction.Amount), nil
 }

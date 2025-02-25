@@ -6,6 +6,8 @@ type User {
     transactions(page: PageArgs): TransactionConnection!
     accounts(page: PageArgs): AccountConnection!
     merchants(page: PageArgs): MerchantConnection!
+    savingsFunds(page: PageArgs): FundConnection!
+    budgets(page: PageArgs): FundConnection!
 }
 
 type UserEdge {

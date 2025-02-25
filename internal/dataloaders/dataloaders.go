@@ -3,6 +3,8 @@ package dataloaders
 //go:generate go run github.com/vektah/dataloaden TransactionLoader string []github.com/proctorinc/banker/internal/db.Transaction
 //go:generate go run github.com/vektah/dataloaden TransactionCountLoader string int64
 //go:generate go run github.com/vektah/dataloaden MerchantLoader string github.com/proctorinc/banker/internal/db.Merchant
+//go:generate go run github.com/vektah/dataloaden FundAllocationLoader string []github.com/proctorinc/banker/internal/db.FundAllocation
+//go:generate go run github.com/vektah/dataloaden FundAllocationCountLoader string int64
 
 import (
 	"context"
@@ -22,6 +24,8 @@ type Loaders struct {
 	CountTransactionsByAccountId  *TransactionCountLoader
 	CountTransactionsByMerchantId *TransactionCountLoader
 	MerchantByTransactionId       *MerchantLoader
+	FundAllocationsByFundId       func(limit int32, start int32) *FundAllocationLoader
+	CountFundAllocationsByFundId  *FundAllocationCountLoader
 }
 
 func newLoaders(ctx context.Context, repo db.Repository) *Loaders {
@@ -35,6 +39,10 @@ func newLoaders(ctx context.Context, repo db.Repository) *Loaders {
 		CountTransactionsByAccountId:  newCountTransactionsByAccountIdLoader(ctx, repo),
 		CountTransactionsByMerchantId: newCountTransactionsByMerchantIdLoader(ctx, repo),
 		MerchantByTransactionId:       newMerchantLoader(ctx, repo),
+		FundAllocationsByFundId: func(limit int32, start int32) *FundAllocationLoader {
+			return newFundAllocationsByFundIdLoader(ctx, repo, limit, start)
+		},
+		CountFundAllocationsByFundId: newCountFundAllocationsByFundIdLoader(ctx, repo),
 	}
 }
 
@@ -191,6 +199,66 @@ func newMerchantLoader(ctx context.Context, repo db.Repository) *MerchantLoader 
 			}
 
 			return result, nil
+		},
+	})
+}
+
+func newFundAllocationsByFundIdLoader(ctx context.Context, repo db.Repository, limit int32, start int32) *FundAllocationLoader {
+	return NewFundAllocationLoader(FundAllocationLoaderConfig{
+		MaxBatch: 100,
+		Wait:     5 * time.Millisecond,
+		Fetch: func(fundIds []string) ([][]db.FundAllocation, []error) {
+			fundCount := len(fundIds)
+			res, err := repo.ListFundAllocationsByFundIds(ctx, db.ListFundAllocationsByFundIdsParams{
+				Fundids: fundIds,
+				Limit:   limit * int32(fundCount), // Query for up to the combined limit
+				Start:   start,
+			})
+
+			if err != nil {
+				return nil, []error{err}
+			}
+
+			groupByFundId := make(map[string][]db.FundAllocation, fundCount)
+
+			for _, r := range res {
+				allocations := groupByFundId[r.Fundid.String()]
+
+				// Make sure transactions are only added up to the limit
+				if len(allocations) < int(limit) {
+					groupByFundId[r.Fundid.String()] = append(groupByFundId[r.Fundid.String()], r)
+				}
+			}
+
+			result := make([][]db.FundAllocation, fundCount)
+
+			for i, accountId := range fundIds {
+				result[i] = groupByFundId[accountId]
+			}
+
+			return result, nil
+		},
+	})
+}
+
+func newCountFundAllocationsByFundIdLoader(ctx context.Context, repo db.Repository) *FundAllocationCountLoader {
+	return NewFundAllocationCountLoader(FundAllocationCountLoaderConfig{
+		MaxBatch: 100,
+		Wait:     5 * time.Millisecond,
+		Fetch: func(fundIds []string) ([]int64, []error) {
+			res, err := repo.CountFundAllocationsByFundId(ctx, fundIds)
+
+			if err != nil {
+				return nil, []error{err}
+			}
+
+			counts := make([]int64, len(fundIds))
+
+			for i, r := range res {
+				counts[i] = r.Count
+			}
+
+			return counts, nil
 		},
 	})
 }

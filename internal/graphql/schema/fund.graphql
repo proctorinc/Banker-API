@@ -1,0 +1,56 @@
+type Fund {
+    id: ID!
+    type: String!
+    name: String!
+    goal: Float!
+    startDate: Date!
+    endDate: Date!
+    total: Float!
+    allocations(page: PageArgs): FundAllocationConnection!
+}
+
+type FundEdge {
+    cursor: String
+    node: Fund!
+}
+
+type FundConnection {
+    edges: [FundEdge!]!
+    pageInfo: PageInfo!
+}
+
+type FundAllocation {
+    id: ID!
+    description: String!
+    amount: Float!
+    ownerId: ID!
+    fundId: ID!
+}
+
+type FundAllocationEdge {
+    cursor: String
+    node: FundAllocation!
+}
+
+type FundAllocationConnection {
+    edges: [FundAllocationEdge!]!
+    pageInfo: PageInfo!
+}
+
+type FundsResponse {
+    stats: FundsStats!
+    funds(page: PageArgs): FundConnection!
+}
+
+type FundsStats {
+    totalSavings: Float!
+    saved: Float!
+    spent: Float!
+    unallocated: Float!
+}
+
+input CreateFundInput {
+    type: String!
+    name: String!
+    goal: Float!
+}

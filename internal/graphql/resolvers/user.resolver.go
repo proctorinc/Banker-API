@@ -115,6 +115,70 @@ func (r *userResolver) Merchants(ctx context.Context, user *db.User, page *pagin
 	return result, err
 }
 
+func (r *userResolver) SavingsFunds(ctx context.Context, user *db.User, page *paging.PageArgs) (*gen.FundConnection, error) {
+	totalCount, err := r.Repository.CountSavingsFunds(ctx, user.ID)
+
+	if err != nil {
+		return &gen.FundConnection{
+			PageInfo: paging.NewEmptyPageInfo(),
+		}, err
+	}
+
+	paginator := paging.NewOffsetPaginator(page, totalCount)
+	result := &gen.FundConnection{
+		PageInfo: &paginator.PageInfo,
+	}
+	start := int32(paginator.Offset)
+	limit := calculatePageLimit(page)
+
+	transactions, err := r.Repository.ListSavingsFunds(ctx, db.ListSavingsFundsParams{
+		Ownerid: user.ID,
+		Limit:   limit,
+		Start:   start,
+	})
+
+	for i, row := range transactions {
+		result.Edges = append(result.Edges, gen.FundEdge{
+			Cursor: paging.EncodeOffsetCursor(paginator.Offset + i + 1),
+			Node:   &row,
+		})
+	}
+
+	return result, err
+}
+
+func (r *userResolver) Budgets(ctx context.Context, user *db.User, page *paging.PageArgs) (*gen.FundConnection, error) {
+	totalCount, err := r.Repository.CountBudgetFunds(ctx, user.ID)
+
+	if err != nil {
+		return &gen.FundConnection{
+			PageInfo: paging.NewEmptyPageInfo(),
+		}, err
+	}
+
+	paginator := paging.NewOffsetPaginator(page, totalCount)
+	result := &gen.FundConnection{
+		PageInfo: &paginator.PageInfo,
+	}
+	start := int32(paginator.Offset)
+	limit := calculatePageLimit(page)
+
+	transactions, err := r.Repository.ListBudgetFunds(ctx, db.ListBudgetFundsParams{
+		Ownerid: user.ID,
+		Limit:   limit,
+		Start:   start,
+	})
+
+	for i, row := range transactions {
+		result.Edges = append(result.Edges, gen.FundEdge{
+			Cursor: paging.EncodeOffsetCursor(paginator.Offset + i + 1),
+			Node:   &row,
+		})
+	}
+
+	return result, err
+}
+
 // Queries
 
 func (r *queryResolver) Me(ctx context.Context) (*db.User, error) {

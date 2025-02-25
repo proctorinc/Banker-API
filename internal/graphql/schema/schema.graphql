@@ -5,17 +5,21 @@ directive @isAuthenticated on FIELD_DEFINITION
 directive @isAdmin on FIELD_DEFINITION
 
 type Query {
-    user(id: ID!): User @isAdmin
     me: User @isAuthenticated
+    user(id: ID!): User @isAdmin
     account(id: ID!): Account @isAuthenticated
     accounts(page: PageArgs): AccountConnection! @isAuthenticated
     transaction(id: ID!): Transaction @isAuthenticated
     transactions(page: PageArgs): TransactionConnection! @isAuthenticated
     merchant(id: ID!): Merchant @isAuthenticated
     merchants(page: PageArgs): MerchantConnection! @isAuthenticated
+    fund(id: ID!): Fund @isAuthenticated
+    savingsFunds(filter: DateFilter!): FundsResponse! @isAuthenticated
+    budgets(page: PageArgs): FundConnection! @isAuthenticated
     spending(input: StatsInput!): SpendingStats! @isAuthenticated
     income(input: StatsInput!): IncomeStats! @isAuthenticated
     net(input: StatsInput!): NetStats! @isAuthenticated
+    months: [MonthItem!]! @isAuthenticated
 }
 
 type Mutation {
@@ -25,6 +29,7 @@ type Mutation {
     deleteUser: User! @isAuthenticated
     deleteTransaction(id: ID!): Transaction! @isAuthenticated
     chaseOFXUpload(file: Upload!): UploadResponse! @isAuthenticated
+    createFund(data: CreateFundInput!): Fund!
 }
 
 type UploadResponse {

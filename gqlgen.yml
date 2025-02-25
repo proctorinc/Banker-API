@@ -81,9 +81,14 @@ models:
       - github.com/99designs/gqlgen/graphql.Int64
       - github.com/99designs/gqlgen/graphql.Int32
 
-  # [agination models
+  # Pagination models
   PageArgs:
     model: "github.com/proctorinc/banker/internal/graphql/paging.PageArgs"
 
   PageInfo:
     model: "github.com/proctorinc/banker/internal/graphql/paging.PageInfo"
+
+  FundsResponse:
+    fields:
+      funds:
+        resolver: true

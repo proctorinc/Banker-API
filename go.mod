@@ -5,6 +5,7 @@ go 1.22.5
 require (
 	github.com/99designs/gqlgen v0.17.49
 	github.com/aclindsa/ofxgo v0.1.3
+	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
 	github.com/gocarina/gocsv v0.0.0-20240520201108-78e41c74b4b1
 	github.com/google/uuid v1.6.0
@@ -16,10 +17,7 @@ require (
 	golang.org/x/text v0.17.0
 )
 
-require (
-	github.com/gin-contrib/cors v1.7.2 // indirect
-	github.com/pkg/errors v0.8.1 // indirect
-)
+require github.com/pkg/errors v0.8.1 // indirect
 
 require (
 	github.com/aclindsa/xml v0.0.0-20201125035057-bbd5c9ec99ac // indirect
@@ -64,7 +62,6 @@ require (
 	golang.org/x/tools v0.22.0 // indirect
 	gonum.org/v1/gonum v0.7.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/neurosnap/sentences.v1 v1.0.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -22,6 +22,10 @@ type Repository interface {
 	UpsertAccount(ctx context.Context, arg UpsertAccountParams) (Account, error)
 	CountAccounts(ctx context.Context, ownerid uuid.UUID) (int64, error)
 
+	// Account Sync Item
+	GetLastSync(ctx context.Context, accountId uuid.UUID) (AccountSyncItem, error)
+	CreateAccountSyncItem(ctx context.Context, arg CreateAccountSyncItemParams) (AccountSyncItem, error)
+
 	// Transactions
 	GetTransaction(ctx context.Context, arg GetTransactionParams) (Transaction, error)
 	ListTransactions(ctx context.Context, arg ListTransactionsParams) ([]Transaction, error)
@@ -32,6 +36,7 @@ type Repository interface {
 	ListIncomeTransactions(ctx context.Context, arg ListIncomeTransactionsParams) ([]Transaction, error)
 	ListAccountSpendingTransactions(ctx context.Context, arg ListAccountSpendingTransactionsParams) ([]Transaction, error)
 	ListAccountIncomeTransactions(ctx context.Context, arg ListAccountIncomeTransactionsParams) ([]Transaction, error)
+	ListMonths(ctx context.Context, args uuid.UUID) ([]ListMonthsRow, error)
 	CountTransactions(ctx context.Context, ownerid uuid.UUID) (int64, error)
 	CountTransactionsByDates(ctx context.Context, arg CountTransactionsByDatesParams) (int64, error)
 	CountTransactionsByAccountIds(ctx context.Context, accountIds []string) ([]CountTransactionsByAccountIdsRow, error)
@@ -61,6 +66,19 @@ type Repository interface {
 	GetNetIncome(ctx context.Context, arg GetNetIncomeParams) (interface{}, error)
 	GetAccountSpending(ctx context.Context, arg GetAccountSpendingParams) (interface{}, error)
 	GetAccountIncome(ctx context.Context, arg GetAccountIncomeParams) (interface{}, error)
+
+	// Funds
+	CreateFund(ctx context.Context, arg CreateFundParams) (Fund, error)
+	ListSavingsFunds(ctx context.Context, arg ListSavingsFundsParams) ([]Fund, error)
+	ListBudgetFunds(ctx context.Context, arg ListBudgetFundsParams) ([]Fund, error)
+	GetFundTotal(ctx context.Context, fundId uuid.UUID) (interface{}, error)
+	CountSavingsFunds(ctx context.Context, ownerid uuid.UUID) (int64, error)
+	CountBudgetFunds(ctx context.Context, ownerid uuid.UUID) (int64, error)
+
+	// Fund Allocations
+	ListFundAllocationsByFundIds(ctx context.Context, arg ListFundAllocationsByFundIdsParams) ([]FundAllocation, error)
+	CountFundAllocationsByFundId(ctx context.Context, fundIds []string) ([]CountFundAllocationsByFundIdRow, error)
+	GetFundAllocationsStats(ctx context.Context, arg GetFundAllocationsStatsParams) (GetFundAllocationsStatsRow, error)
 }
 
 type repositoryService struct {

@@ -59,6 +59,48 @@ func (ns NullAccountType) Value() (driver.Value, error) {
 	return string(ns.AccountType), nil
 }
 
+type FundType string
+
+const (
+	FundTypeSAVINGS FundType = "SAVINGS"
+	FundTypeBUDGET  FundType = "BUDGET"
+)
+
+func (e *FundType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = FundType(s)
+	case string:
+		*e = FundType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for FundType: %T", src)
+	}
+	return nil
+}
+
+type NullFundType struct {
+	FundType FundType
+	Valid    bool // Valid is true if FundType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullFundType) Scan(value interface{}) error {
+	if value == nil {
+		ns.FundType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.FundType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullFundType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.FundType), nil
+}
+
 type Role string
 
 const (
@@ -204,12 +246,37 @@ func (ns NullUploadSource) Value() (driver.Value, error) {
 type Account struct {
 	ID            uuid.UUID
 	Sourceid      string
-	Uploadsource  UploadSource
 	Type          AccountType
 	Name          string
 	Routingnumber sql.NullString
 	Updated       time.Time
 	Ownerid       uuid.UUID
+}
+
+type AccountSyncItem struct {
+	ID           uuid.UUID
+	Date         time.Time
+	Uploadsource UploadSource
+	Accountid    uuid.UUID
+}
+
+type Fund struct {
+	ID        uuid.UUID
+	Type      FundType
+	Name      string
+	Goal      int32
+	Startdate time.Time
+	Enddate   sql.NullTime
+	Ownerid   uuid.UUID
+}
+
+type FundAllocation struct {
+	ID          uuid.UUID
+	Description string
+	Amount      int32
+	Date        time.Time
+	Ownerid     uuid.UUID
+	Fundid      uuid.UUID
 }
 
 type Merchant struct {
@@ -230,7 +297,6 @@ type MerchantKey struct {
 type Transaction struct {
 	ID              uuid.UUID
 	Sourceid        string
-	Uploadsource    UploadSource
 	Amount          int32
 	Payeeid         sql.NullString
 	Payee           sql.NullString

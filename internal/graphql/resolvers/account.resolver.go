@@ -31,10 +31,6 @@ func (r *accountResolver) SourceId(ctx context.Context, account *db.Account) (st
 	return masked, nil
 }
 
-func (r *accountResolver) UploadSource(ctx context.Context, account *db.Account) (string, error) {
-	return string(account.Uploadsource), nil
-}
-
 func (r *accountResolver) Type(ctx context.Context, account *db.Account) (string, error) {
 	return string(account.Type), nil
 }
@@ -50,6 +46,12 @@ func (r *accountResolver) RoutingNumber(ctx context.Context, account *db.Account
 	}
 
 	return nil, nil
+}
+
+func (r *accountResolver) LastSync(ctx context.Context, account *db.Account) (*db.AccountSyncItem, error) {
+	sync, err := r.Repository.GetLastSync(ctx, account.ID)
+
+	return &sync, err
 }
 
 func (r *accountResolver) Transactions(ctx context.Context, account *db.Account, page *paging.PageArgs) (*gen.TransactionConnection, error) {
@@ -168,7 +170,6 @@ func (r *mutationResolver) ChaseOFXUpload(ctx context.Context, reader graphql.Up
 
 	account, err := r.Repository.UpsertAccount(ctx, db.UpsertAccountParams{
 		Sourceid:      ofxResult.Account.AccountId,
-		Uploadsource:  db.UploadSourceCHASEOFXUPLOAD,
 		Name:          ofxResult.Account.Name,
 		Type:          db.AccountType(ofxResult.Account.Type),
 		Routingnumber: sql.NullString{String: ofxResult.Account.BankId, Valid: len(ofxResult.Account.BankId) > 0},
@@ -177,6 +178,15 @@ func (r *mutationResolver) ChaseOFXUpload(ctx context.Context, reader graphql.Up
 
 	if err != nil {
 		response.Accounts.Updated++
+		return response, err
+	}
+
+	_, err = r.Repository.CreateAccountSyncItem(ctx, db.CreateAccountSyncItemParams{
+		Accountid:    account.ID,
+		Uploadsource: db.UploadSourceCHASEOFXUPLOAD,
+	})
+
+	if err != nil {
 		return response, err
 	}
 
@@ -229,7 +239,6 @@ func (r *mutationResolver) ChaseOFXUpload(ctx context.Context, reader graphql.Up
 			Payee:           sql.NullString{String: tx.Payee, Valid: len(tx.Payee) > 0},
 			Payeefull:       sql.NullString{String: tx.PayeeFull, Valid: len(tx.PayeeFull) > 0},
 			Sourceid:        tx.Id,
-			Uploadsource:    db.UploadSourceCHASEOFXUPLOAD,
 			Isocurrencycode: ofxResult.Account.IsoCurrencyCode,
 			Date:            tx.DatePosted,
 			Description:     tx.Description,

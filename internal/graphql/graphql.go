@@ -32,7 +32,7 @@ func GraphqlHandler(repo db.Repository, loaders dataloaders.Retriever) gin.Handl
 	)
 
 	// Limit queries to 5 levels of complexity
-	handler.Use(extension.FixedComplexityLimit(50))
+	handler.Use(extension.FixedComplexityLimit(75))
 
 	handler.AddTransport(transport.MultipartForm{
 		MaxUploadSize: 5 * 1_000_000, // 5 MB max

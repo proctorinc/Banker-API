@@ -1,11 +1,11 @@
 type Account {
     id: ID!
     sourceId: String!
-    uploadSource: String!
     type: String!
     name: String!
     routingNumber: String
     transactions(page: PageArgs): TransactionConnection!
+    lastSync: AccountSyncItem!
 }
 
 type AccountEdge {
